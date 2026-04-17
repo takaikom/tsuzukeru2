@@ -234,7 +234,13 @@
   .welcome-add-btn{height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--accent);color:white;font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
   .welcome-add-btn:active{background:var(--accent-dark);}
 
-  /* TOAST */
+  /* DRAG */
+  .drag-handle{width:20px;height:36px;display:flex;align-items:center;justify-content:center;cursor:grab;color:var(--text3);font-size:16px;flex-shrink:0;touch-action:none;user-select:none;-webkit-user-select:none;}
+  .drag-handle:active{cursor:grabbing;}
+  .habit-card.dragging{opacity:.35;pointer-events:none;}
+  .habit-card.drag-over-top{border-top:2.5px solid var(--accent);}
+  .habit-card.drag-over-bottom{border-bottom:2.5px solid var(--accent);}
+  .drag-ghost{position:fixed;pointer-events:none;z-index:500;opacity:.92;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.18);transform:scale(1.03);transition:none;}
   .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:white;font-size:13px;padding:10px 16px;border-radius:99px;opacity:0;transition:opacity .2s,transform .2s;z-index:300;white-space:nowrap;pointer-events:none;display:flex;align-items:center;gap:4px;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
 </style>
@@ -718,10 +724,9 @@ function render(){
   }
   list.innerHTML='';
 
-  // メイン習慣 → おまけ習慣の順に表示
-  const sorted=[...mainHabits,...habits.filter(h=>h.bonus)];
-  // インデックスはオリジナルのhabits配列での位置が必要
-  sorted.forEach(habit=>{
+  // habits配列の順番をそのまま表示（ユーザーが並べた順を尊重）
+  // ドラッグで自由に並び替え可能
+  habits.forEach(habit=>{
     const idx=habits.indexOf(habit);
     const checkedToday=!!(habit.logs||{})[TODAY];
     const isBonus=!!habit.bonus;
@@ -740,6 +745,7 @@ function render(){
 
     const card=document.createElement('div');
     card.className='habit-card'+(isBonus?' bonus':'')+(checkedToday?' checked':'');
+    card.dataset.habitIdx=idx; // オリジナル配列でのインデックス
 
     const badgeHtml=isBonus?'<span class="bonus-tag">おまけ</span>':'';
     const streakHtml=isBonus
@@ -748,6 +754,7 @@ function render(){
 
     card.innerHTML=`
       <div class="card-top">
+        <div class="drag-handle" title="ドラッグして並び替え">⠿</div>
         <div class="check-box"><svg class="check-mark" viewBox="0 0 12 9"><path d="M1 4.5L4.5 8L11 1"/></svg></div>
         <div class="habit-name-wrap">
           <span class="habit-name">${escHtml(habit.name)}${badgeHtml}</span>
@@ -765,14 +772,18 @@ function render(){
         ${milestone?`<span class="milestone">${milestone}</span>`:''}
       </div>`;
 
-    // toggle check (card-top以外の部分をタップ)
+    // toggle check
     card.addEventListener('click',async(e)=>{
-      if(e.target.closest('.act-btn')||e.target.closest('.rename-form'))return;
+      if(e.target.closest('.act-btn')||e.target.closest('.rename-form')||e.target.closest('.drag-handle'))return;
       const a=getCache();const u=a.users.find(u=>u.id===a.currentUserId);
       const h=u.habits[idx];if(!h.logs)h.logs={};
       h.logs[TODAY]?delete h.logs[TODAY]:(h.logs[TODAY]=true);
       setCache(a);render();await saveData();
     });
+
+    // drag handle
+    const handle=card.querySelector('.drag-handle');
+    initDrag(handle,card,list);
 
     list.appendChild(card);
   });
@@ -823,7 +834,89 @@ function render(){
   });
 }
 
-/* ── CALENDAR ── */
+/* ── DRAG & DROP (Pointer Events) ── */
+function initDrag(handle, card, list) {
+  let ghost = null, dragCard = null, startX = 0, startY = 0, offX = 0, offY = 0;
+
+  handle.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    dragCard = card;
+    startX = e.clientX; startY = e.clientY;
+    const rect = card.getBoundingClientRect();
+    offX = e.clientX - rect.left;
+    offY = e.clientY - rect.top;
+
+    // ゴースト作成
+    ghost = card.cloneNode(true);
+    ghost.className = 'drag-ghost habit-card' + (card.classList.contains('bonus') ? ' bonus' : '') + (card.classList.contains('checked') ? ' checked' : '');
+    ghost.style.width = rect.width + 'px';
+    ghost.style.left = rect.left + 'px';
+    ghost.style.top = rect.top + 'px';
+    document.body.appendChild(ghost);
+    card.classList.add('dragging');
+  });
+
+  handle.addEventListener('pointermove', e => {
+    if (!ghost) return;
+    e.preventDefault();
+    ghost.style.left = (e.clientX - offX) + 'px';
+    ghost.style.top = (e.clientY - offY) + 'px';
+
+    // ドロップ先を探す
+    ghost.style.display = 'none';
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    ghost.style.display = '';
+    const targetCard = target && target.closest('.habit-card');
+
+    list.querySelectorAll('.habit-card').forEach(c => {
+      c.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
+    if (targetCard && targetCard !== dragCard) {
+      const r = targetCard.getBoundingClientRect();
+      const mid = r.top + r.height / 2;
+      targetCard.classList.add(e.clientY < mid ? 'drag-over-top' : 'drag-over-bottom');
+    }
+  });
+
+  handle.addEventListener('pointerup', async e => {
+    if (!ghost) return;
+    ghost.remove(); ghost = null;
+    card.classList.remove('dragging');
+
+    // ドロップ先カードを探す
+    const targetCard = list.querySelector('.habit-card.drag-over-top, .habit-card.drag-over-bottom');
+    if (!targetCard || targetCard === dragCard) {
+      list.querySelectorAll('.habit-card').forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom'));
+      dragCard = null; return;
+    }
+    const insertBefore = targetCard.classList.contains('drag-over-top');
+    targetCard.classList.remove('drag-over-top', 'drag-over-bottom');
+
+    // habits配列を並び替え
+    const fromIdx = parseInt(dragCard.dataset.habitIdx);
+    const toIdx   = parseInt(targetCard.dataset.habitIdx);
+    const a = getCache();
+    const u = a.users.find(u => u.id === a.currentUserId);
+    const [moved] = u.habits.splice(fromIdx, 1);
+    // toIdxはsplice後に1ずれる可能性あり
+    let insertAt = toIdx > fromIdx ? toIdx - 1 : toIdx;
+    if (!insertBefore) insertAt++;
+    insertAt = Math.max(0, Math.min(insertAt, u.habits.length));
+    u.habits.splice(insertAt, 0, moved);
+    setCache(a);
+    render();
+    await saveData();
+    dragCard = null;
+  });
+
+  handle.addEventListener('pointercancel', () => {
+    if (ghost) { ghost.remove(); ghost = null; }
+    card.classList.remove('dragging');
+    list.querySelectorAll('.habit-card').forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom'));
+    dragCard = null;
+  });
+}
 function openCalendar(idx){calHabitIdx=idx;calYear=new Date().getFullYear();calMonth=new Date().getMonth();renderCalendar();showScreen('screen-cal');}
 function renderCalendar(){
   const {habits}=getUserData();const habit=habits[calHabitIdx];if(!habit){showScreen('screen-list');return;}
