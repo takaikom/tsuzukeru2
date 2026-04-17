@@ -310,7 +310,7 @@
   <div class="add-bar">
     <div class="add-form">
       <input class="add-input" id="add-input" type="text" placeholder="新しい習慣を追加…" maxlength="40">
-      <button class="add-type-btn" id="add-type-btn">通常</button>
+      <button class="add-type-btn" id="add-type-btn">毎日</button>
       <button class="add-btn" id="add-btn">＋</button>
     </div>
   </div>
@@ -342,7 +342,7 @@
     </div>
     <div class="cal-legend">
       <div class="legend-item"><div class="legend-dot done"></div>達成済み</div>
-      <div class="legend-item" id="cal-legend-bonus" style="display:none;"><div class="legend-dot bonus-done"></div>おまけ実施</div>
+      <div class="legend-item" id="cal-legend-bonus" style="display:none;"><div class="legend-dot bonus-done"></div>ときどき実施</div>
       <div class="legend-item"><div class="legend-dot today-l"></div>今日</div>
     </div>
   </div>
@@ -683,9 +683,9 @@ function renderUserTabs(){
 document.getElementById('add-type-btn').addEventListener('click',()=>{
   addingBonus=!addingBonus;
   const btn=document.getElementById('add-type-btn');
-  btn.textContent=addingBonus?'おまけ':'通常';
+  btn.textContent=addingBonus?'ときどき':'毎日';
   btn.classList.toggle('bonus-mode',addingBonus);
-  document.getElementById('add-input').placeholder=addingBonus?'おまけ習慣を追加（進捗に影響しない）…':'新しい習慣を追加…';
+  document.getElementById('add-input').placeholder=addingBonus?'ときどき習慣を追加（進捗に影響しない）…':'新しい習慣を追加…';
 });
 
 /* ── RENDER LIST ── */
@@ -747,7 +747,7 @@ function render(){
     card.className='habit-card'+(isBonus?' bonus':'')+(checkedToday?' checked':'');
     card.dataset.habitIdx=idx; // オリジナル配列でのインデックス
 
-    const badgeHtml=isBonus?'<span class="bonus-tag">おまけ</span>':'';
+    const badgeHtml=isBonus?'<span class="bonus-tag">ときどき</span>':'';
     const streakHtml=isBonus
       ?`<div class="streak-badge bonus-badge">累計${totalDays}回</div>`
       :`<div class="streak-badge ${streakClass}">🔥 ${streak}日連続</div><div class="days-label">累計${totalDays}日</div>`;
@@ -796,27 +796,58 @@ function render(){
     btn.addEventListener('click',(e)=>{
       e.stopPropagation();const idx=parseInt(btn.dataset.idx);
       const card=btn.closest('.habit-card');
-      const currentName=getUserData().habits[idx].name;
+      const habit=getUserData().habits[idx];
+      const currentName=habit.name;
+      const currentBonus=!!habit.bonus;
       const cardBottom=card.querySelector('.card-bottom');
       cardBottom.style.display='none';
       const form=document.createElement('div');form.className='rename-form';
-      form.style.marginTop='8px';
-      form.innerHTML=`<input class="rename-input" type="text" value="${escHtml(currentName)}" maxlength="40"><button class="rename-ok">保存</button><button class="rename-cancel">取消</button>`;
+      form.style.cssText='flex-direction:column;gap:8px;margin-top:8px;';
+      form.innerHTML=`
+        <input class="rename-input" type="text" value="${escHtml(currentName)}" maxlength="40" style="width:100%;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;color:var(--text2);flex-shrink:0;">種別：</span>
+          <button class="type-toggle-btn" style="padding:4px 14px;border-radius:8px;border:1.5px solid ${currentBonus?'var(--purple)':'var(--accent)'};background:${currentBonus?'var(--purple-light)':'var(--accent-light)'};color:${currentBonus?'var(--purple)':'var(--accent)'};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;" data-bonus="${currentBonus}">${currentBonus?'ときどき':'毎日'}</button>
+          <span style="font-size:11px;color:var(--text3);" id="type-hint-${idx}">${currentBonus?'進捗に影響しない':'進捗に含める'}</span>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="rename-ok" style="flex:1;">保存</button>
+          <button class="rename-cancel">取消</button>
+        </div>`;
       card.appendChild(form);
       const input=form.querySelector('.rename-input');input.focus();input.select();
+
+      // 種別トグル
+      let editBonus=currentBonus;
+      const typeBtn=form.querySelector('.type-toggle-btn');
+      const typeHint=form.querySelector(`#type-hint-${idx}`);
+      typeBtn.addEventListener('click',e=>{
+        e.stopPropagation();
+        editBonus=!editBonus;
+        typeBtn.dataset.bonus=editBonus;
+        typeBtn.textContent=editBonus?'ときどき':'毎日';
+        typeBtn.style.borderColor=editBonus?'var(--purple)':'var(--accent)';
+        typeBtn.style.background=editBonus?'var(--purple-light)':'var(--accent-light)';
+        typeBtn.style.color=editBonus?'var(--purple)':'var(--accent)';
+        typeHint.textContent=editBonus?'進捗に影響しない':'進捗に含める';
+      });
+
       const doSave=async()=>{
         const newName=input.value.trim();
-        if(newName&&newName!==currentName){
+        if(newName){
           const a=getCache();const u=a.users.find(u=>u.id===a.currentUserId);
-          u.habits[idx].name=newName;setCache(a);await saveData();
-          showToast(`✅「${newName}」に変更しました`);
+          u.habits[idx].name=newName;
+          u.habits[idx].bonus=editBonus;
+          setCache(a);await saveData();
+          showToast(`✅「${newName}」を保存しました`);
         }
         render();
       };
       form.querySelector('.rename-ok').addEventListener('click',e=>{e.stopPropagation();doSave();});
       form.querySelector('.rename-cancel').addEventListener('click',e=>{e.stopPropagation();render();});
-      input.addEventListener('keydown',e=>{if(e.key==='Enter')doSave();if(e.key==='Escape')render();});
+      input.addEventListener('keydown',e=>{if(e.key==='Escape')render();});
       input.addEventListener('click',e=>e.stopPropagation());
+      form.addEventListener('click',e=>e.stopPropagation());
     });
   });
 
@@ -921,7 +952,7 @@ function openCalendar(idx){calHabitIdx=idx;calYear=new Date().getFullYear();calM
 function renderCalendar(){
   const {habits}=getUserData();const habit=habits[calHabitIdx];if(!habit){showScreen('screen-list');return;}
   const isBonus=!!habit.bonus;
-  document.getElementById('cal-habit-name').textContent=habit.name+(isBonus?' (おまけ)':'');
+  document.getElementById('cal-habit-name').textContent=habit.name+(isBonus?' (ときどき)':'');
   document.getElementById('cal-edit-hint').textContent='日付をタップして過去のデータを編集できます';
   document.getElementById('cal-streak').textContent=isBonus?'—':getStreak(habit);
   document.getElementById('cal-streak-lbl').textContent=isBonus?'ー':'🔥 連続日数';
@@ -978,7 +1009,7 @@ function renderArchive(){
   list.innerHTML='';
   archive.forEach((habit,idx)=>{
     const card=document.createElement('div');card.className='archive-card';
-    const typeLabel=habit.bonus?'おまけ':'通常';
+    const typeLabel=habit.bonus?'ときどき':'毎日';
     card.innerHTML=`<div class="archive-info"><div class="archive-name">${escHtml(habit.name)} <span style="font-size:11px;color:var(--text3);">[${typeLabel}]</span></div><div class="archive-meta">累計${getTotalDays(habit)}日達成 · 削除日: ${habit.deletedAt||'不明'}</div></div><button class="restore-btn" data-idx="${idx}">復元</button>`;
     list.appendChild(card);
   });
