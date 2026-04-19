@@ -184,7 +184,7 @@
   /* SHEET */
   .sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;align-items:flex-end;justify-content:center;}
   .sheet-overlay.open{display:flex;}
-  .sheet{background:var(--surface);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp .24s cubic-bezier(.22,1,.36,1);}
+  .sheet{background:var(--surface);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp .24s cubic-bezier(.22,1,.36,1);max-height:90vh;overflow-y:auto;}
   @keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
   .sheet-handle{width:36px;height:4px;background:var(--border2);border-radius:99px;margin:0 auto 20px;}
   .sheet-title{font-size:16px;font-weight:700;margin-bottom:16px;}
@@ -436,6 +436,10 @@
       <div class="btn-icon sync-icon">🔗</div>
       <div><div>グループ・共有の設定</div><div class="btn-desc" id="sync-status-label">未設定（ローカル保存中）</div></div>
     </button>
+    <button class="sheet-btn" id="delete-group-btn">
+      <div class="btn-icon" style="background:var(--red-light);">🗑️</div>
+      <div><div id="delete-group-label">このグループを削除</div><div class="btn-desc">一時削除します（復元可能）</div></div>
+    </button>
     <hr class="sheet-divider">
     <button class="sheet-btn" id="switch-user-btn">
       <div class="btn-icon" style="background:var(--blue-light);">🔄</div>
@@ -457,6 +461,10 @@
     <button class="sheet-btn" id="deleted-users-btn">
       <div class="btn-icon" style="background:var(--amber-light);">👤</div>
       <div><div>削除したユーザー <span id="deleted-users-badge" style="display:none;background:var(--amber);color:white;border-radius:99px;font-size:11px;padding:1px 7px;margin-left:4px;"></span></div><div class="btn-desc">一時削除したユーザーを復元できます</div></div>
+    </button>
+    <button class="sheet-btn" id="deleted-groups-btn">
+      <div class="btn-icon" style="background:var(--purple-light);">📂</div>
+      <div><div>削除したグループ <span id="deleted-groups-badge" style="display:none;background:var(--purple);color:white;border-radius:99px;font-size:11px;padding:1px 7px;margin-left:4px;"></span></div><div class="btn-desc">一時削除したグループを復元できます</div></div>
     </button>
     <button class="sheet-btn" id="export-btn">
       <div class="btn-icon export">📤</div>
@@ -503,6 +511,10 @@ function setGasUrl(url){
   const g=groups.find(g=>g.id===id);if(g){g.gasUrl=url;saveGroups(groups);}
 }
 function clearGasUrl(){setGasUrl('');}
+
+const DELETED_GROUPS_KEY='tsuzukeru_deleted_groups';
+function loadDeletedGroups(){try{return JSON.parse(localStorage.getItem(DELETED_GROUPS_KEY))||[];}catch{return[];}}
+function saveDeletedGroups(dg){localStorage.setItem(DELETED_GROUPS_KEY,JSON.stringify(dg));}
 
 // ── PINS & MODE ──
 function getPinnedUserId(){return localStorage.getItem(PINNED_KEY+getCurrentGroupId())||'';}
@@ -902,7 +914,10 @@ function showAddGroupForm(){
     const name=inp.value.trim();if(!name)return;
     const g2=loadGroups();const id='g'+Date.now();
     g2.push({id,name,gasUrl:''});saveGroups(g2);
-    setCurrentGroupId(id);resetCache();initLocal();
+    setCurrentGroupId(id);resetCache();
+    // 新グループ用に空データを明示的に保存（旧グループのデータを引き継がない）
+    const newData={currentUserId:'u1',users:[{id:'u1',name:'わたし',habits:[],archive:[]}]};
+    localStorage.setItem(LOCAL_KEY+'_'+id,JSON.stringify(newData));
     ov.remove();renderGroupTabs();renderUserTabs();render();
     showToast(`グループ「${name}」を作成しました`);
   };
@@ -1359,9 +1374,14 @@ document.getElementById('menu-btn').addEventListener('click',()=>{
   const allData=getCache();
   const duBadge=document.getElementById('deleted-users-badge');
   if(duBadge){const dc=(allData.deletedUsers||[]).length;duBadge.textContent=dc;duBadge.style.display=dc>0?'inline':'none';}
+  const dgBadge=document.getElementById('deleted-groups-badge');
+  if(dgBadge){const dgc=(loadDeletedGroups()).length;dgBadge.textContent=dgc;dgBadge.style.display=dgc>0?'inline':'none';}
   document.getElementById('sync-status-label').textContent=getGasUrl()?'設定済み（家族と同期中）':'未設定（ローカル保存中）';
   const all=getCache();
   document.getElementById('delete-user-btn').style.display=all.users.length>1?'flex':'none';
+  // グループが1つしかなければ削除ボタンを隠す
+  document.getElementById('delete-group-btn').style.display=loadGroups().length>1?'flex':'none';
+  document.getElementById('delete-group-label').textContent=cg?`「${cg.name}」を削除`:'このグループを削除';
   document.getElementById('parent-mode-toggle').checked=isParentMode();
   // setup画面にグループ名を表示
   if(document.getElementById('setup-current-group'))
@@ -1523,6 +1543,83 @@ document.getElementById('import-file').addEventListener('change',async e=>{
     e.target.value='';
   };
   reader.readAsText(file);
+});
+
+// ── グループ削除 ──
+document.getElementById('delete-group-btn').addEventListener('click',()=>{
+  overlay.classList.remove('open');
+  const cg=getCurrentGroup();if(!cg)return;
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:250;display:flex;align-items:flex-end;justify-content:center;';
+  ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp .24s cubic-bezier(.22,1,.36,1);">
+    <div style="font-size:15px;font-weight:700;margin-bottom:8px;">「${escHtml(cg.name)}」を削除しますか？</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:20px;">グループ内のデータはこのデバイスに保持されます。一時削除なら後で復元できます。</div>
+    <button id="dg-soft" style="width:100%;height:44px;border-radius:12px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">一時削除（復元可能）</button>
+    <button id="dg-hard" style="width:100%;height:44px;border-radius:12px;border:1px solid #E24B4A;background:var(--red-light);color:#E24B4A;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">完全削除（元に戻せません）</button>
+    <button id="dg-cancel" style="width:100%;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;">キャンセル</button>
+  </div>`;
+  document.body.appendChild(ov);
+  const switchToRemaining=()=>{
+    const remaining=loadGroups();
+    if(remaining.length){setCurrentGroupId(remaining[0].id);resetCache();}
+    else{
+      const newId='g_default_'+Date.now();
+      const newGroups=[{id:newId,name:'わたしの習慣',gasUrl:''}];
+      saveGroups(newGroups);setCurrentGroupId(newId);
+      localStorage.setItem(LOCAL_KEY+'_'+newId,JSON.stringify({currentUserId:'u1',users:[{id:'u1',name:'わたし',habits:[],archive:[]}]}));
+      resetCache();
+    }
+    renderGroupTabs();renderUserTabs();render();
+  };
+  ov.querySelector('#dg-soft').addEventListener('click',()=>{
+    const groups=loadGroups();const idx=groups.findIndex(g=>g.id===cg.id);
+    if(idx!==-1){groups.splice(idx,1);saveGroups(groups);}
+    const dg=loadDeletedGroups();dg.push({...cg,deletedAt:new Date().toLocaleDateString('ja-JP')});saveDeletedGroups(dg);
+    ov.remove();switchToRemaining();showToast('「'+cg.name+'」を一時削除しました（復元可能）');
+  });
+  ov.querySelector('#dg-hard').addEventListener('click',()=>{
+    const groups=loadGroups();const idx=groups.findIndex(g=>g.id===cg.id);
+    if(idx!==-1){groups.splice(idx,1);saveGroups(groups);}
+    localStorage.removeItem(LOCAL_KEY+'_'+cg.id);
+    ov.remove();switchToRemaining();showToast('「'+cg.name+'」を完全削除しました');
+  });
+  ov.querySelector('#dg-cancel').addEventListener('click',()=>ov.remove());
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+});
+
+// ── 削除したグループ一覧・復元 ──
+document.getElementById('deleted-groups-btn').addEventListener('click',()=>{
+  overlay.classList.remove('open');
+  const deleted=loadDeletedGroups();
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:250;display:flex;align-items:flex-end;justify-content:center;';
+  const listHtml=deleted.length
+    ? deleted.map((g,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);margin-bottom:8px;">
+        <div style="flex:1;"><div style="font-size:14px;font-weight:500;">${escHtml(g.name)}</div><div style="font-size:11px;color:var(--text3);">削除日：${g.deletedAt||'不明'}${g.gasUrl?' 🔗 共有あり':''}</div></div>
+        <button data-idx="${i}" class="rg-btn" style="padding:6px 12px;border-radius:8px;border:1px solid var(--blue);background:var(--blue-light);color:var(--blue);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;flex-shrink:0;">復元</button>
+        <button data-idx="${i}" class="pg-btn" style="padding:6px 12px;border-radius:8px;border:1px solid #E24B4A;background:var(--red-light);color:#E24B4A;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;flex-shrink:0;">完全削除</button>
+      </div>`).join('')
+    : '<div style="text-align:center;padding:20px;color:var(--text3);font-size:14px;">一時削除されたグループはありません</div>';
+  ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;max-height:80vh;overflow-y:auto;animation:slideUp .24s cubic-bezier(.22,1,.36,1);">
+    <div style="font-size:15px;font-weight:700;margin-bottom:16px;">削除したグループ</div>
+    ${listHtml}
+    <button id="dgg-close" style="width:100%;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;margin-top:4px;">閉じる</button>
+  </div>`;
+  document.body.appendChild(ov);
+  ov.querySelectorAll('.rg-btn').forEach(btn=>btn.addEventListener('click',()=>{
+    const idx=parseInt(btn.dataset.idx);const dg=loadDeletedGroups();
+    const g=dg.splice(idx,1)[0];delete g.deletedAt;
+    const groups=loadGroups();groups.push(g);saveGroups(groups);saveDeletedGroups(dg);
+    ov.remove();renderGroupTabs();showToast('✅「'+g.name+'」を復元しました');
+  }));
+  ov.querySelectorAll('.pg-btn').forEach(btn=>btn.addEventListener('click',()=>{
+    const idx=parseInt(btn.dataset.idx);const dg=loadDeletedGroups();
+    const g=dg.splice(idx,1)[0];saveDeletedGroups(dg);
+    localStorage.removeItem(LOCAL_KEY+'_'+g.id);
+    ov.remove();showToast('「'+g.name+'」を完全削除しました');
+  }));
+  ov.querySelector('#dgg-close').addEventListener('click',()=>ov.remove());
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
 });
 
 // ── 定期同期（30秒）──
