@@ -15,7 +15,6 @@
     --amber:#BA7517;--amber-light:#FAEEDA;--check:#639922;
     --blue:#185FA5;--blue-light:#E6F1FB;
     --purple:#534AB7;--purple-light:#EEEDFE;
-    --red:#A32D2D;--red-light:#FCEBEB;--red-mid:#E24B4A;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
@@ -34,14 +33,6 @@
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
   .date-display{font-size:12px;color:var(--text2);padding:0 20px 10px;}
   .menu-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;}
-
-  /* GROUP TABS */
-  .group-tabs{display:flex;align-items:center;overflow-x:auto;padding:0 16px;scrollbar-width:none;border-top:1px solid var(--border);background:var(--surface2);}
-  .group-tabs::-webkit-scrollbar{display:none;}
-  .group-tab{flex-shrink:0;padding:6px 12px;font-size:12px;font-weight:500;color:var(--text3);border:none;background:transparent;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s;-webkit-tap-highlight-color:transparent;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;}
-  .group-tab.active{color:var(--blue);border-bottom-color:var(--blue);}
-  .add-group-tab-btn{flex-shrink:0;padding:4px 8px;font-size:11px;color:var(--text3);border:1px dashed var(--border2);border-radius:6px;background:transparent;cursor:pointer;margin-left:6px;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;-webkit-tap-highlight-color:transparent;}
-  .add-group-tab-btn:active{border-color:var(--blue);color:var(--blue);}
 
   /* USER TABS */
   .user-tabs{display:flex;align-items:center;overflow-x:auto;padding:0 16px;scrollbar-width:none;border-top:1px solid var(--border);}
@@ -66,54 +57,39 @@
   .habit-list{display:flex;flex-direction:column;gap:8px;}
   .habit-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 14px;cursor:pointer;transition:transform .12s,border-color .2s,background .2s;user-select:none;-webkit-tap-highlight-color:transparent;}
   .habit-card:active{transform:scale(.98);}
-  /* 毎日 */
   .habit-card.checked{background:var(--green-light);border-color:#C0DD97;}
-  /* ときどき */
-  .habit-card.type-occasional{border-left:3px solid var(--purple);}
-  .habit-card.type-occasional.checked{background:var(--purple-light);border-color:#AFA9EC;border-left-color:var(--purple);}
-  /* やめる！ */
-  .habit-card.type-quit{border-left:3px solid var(--red-mid);}
-  .habit-card.type-quit.checked{background:#FFF5F5;border-color:#F7C1C1;border-left-color:var(--red-mid);}
-  /* やめる！ 未チェック（やってしまった日） */
-  .habit-card.type-quit:not(.checked){background:#FFFAFA;}
+  .habit-card.bonus{border-left:3px solid var(--purple);}
+  .habit-card.bonus.checked{background:var(--purple-light);border-color:#AFA9EC;border-left-color:var(--purple);}
 
-  /* Card top row */
+  /* Card top row: checkbox + name + action buttons */
   .card-top{display:flex;align-items:center;gap:10px;}
   .check-box{width:26px;height:26px;border-radius:50%;border:2px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .2s,border-color .2s;background:var(--surface2);}
   .habit-card.checked .check-box{background:var(--check);border-color:var(--check);}
-  .habit-card.type-occasional.checked .check-box{background:var(--purple);border-color:var(--purple);}
-  .habit-card.type-quit.checked .check-box{background:var(--green);border-color:var(--green);}
+  .habit-card.bonus.checked .check-box{background:var(--purple);border-color:var(--purple);}
   .check-mark{width:11px;height:8px;opacity:0;transition:opacity .15s;}
-  .habit-card.checked .check-mark{opacity:1;}
+  .habit-card.checked .check-mark,.habit-card.bonus.checked .check-mark{opacity:1;}
   .check-mark path{stroke:white;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;fill:none;}
   .habit-name-wrap{flex:1;min-width:0;}
   .habit-name{font-size:15px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .habit-card.checked .habit-name{color:var(--green);}
-  .habit-card.type-occasional.checked .habit-name{color:var(--purple);}
-  .habit-card.type-quit.checked .habit-name{color:var(--green);}
-  .type-tag{font-size:10px;border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:middle;}
-  .type-tag.occasional{color:var(--purple);background:var(--purple-light);}
-  .type-tag.quit{color:var(--red);background:var(--red-light);}
+  .habit-card.bonus.checked .habit-name{color:var(--purple);}
+  .bonus-tag{font-size:10px;color:var(--purple);background:var(--purple-light);border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:middle;}
 
-  /* Card bottom row */
-  .card-bottom{display:flex;align-items:center;gap:8px;margin-top:7px;padding-left:36px;flex-wrap:wrap;}
+  /* Card bottom row: streak info */
+  .card-bottom{display:flex;align-items:center;gap:8px;margin-top:7px;padding-left:36px;}
   .streak-badge{font-size:11px;font-family:'DM Mono',monospace;font-weight:500;padding:2px 7px;border-radius:99px;background:var(--amber-light);color:var(--amber);}
   .streak-badge.high{background:var(--accent-light);color:var(--accent-dark);}
   .streak-badge.done-today{background:var(--green-light);color:var(--green);}
-  .streak-badge.occasional-badge{background:var(--purple-light);color:var(--purple);}
-  .streak-badge.quit-resist{background:var(--green-light);color:var(--green);}
-  .streak-badge.quit-fail{background:var(--red-light);color:var(--red);}
+  .streak-badge.bonus-badge{background:var(--purple-light);color:var(--purple);}
   .days-label{font-size:11px;color:var(--text3);}
   .dot-row{display:flex;gap:3px;align-items:center;}
   .dot{width:6px;height:6px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);}
   .dot.filled{background:var(--check);border-color:var(--check);}
   .dot.filled.today-dot{background:var(--accent);border-color:var(--accent);}
-  .dot.filled.occasional-dot{background:var(--purple);border-color:var(--purple);}
-  .dot.filled.quit-ok{background:var(--check);border-color:var(--check);}
-  .dot.filled.quit-ng{background:var(--red-mid);border-color:var(--red-mid);}
+  .dot.filled.bonus-dot{background:var(--purple);border-color:var(--purple);}
   .milestone{font-size:11px;color:var(--text3);}
 
-  /* ACTION BUTTONS */
+  /* ACTION BUTTONS - horizontal, top-right */
   .card-actions{display:flex;align-items:center;gap:4px;flex-shrink:0;}
   .act-btn{width:26px;height:26px;border-radius:7px;border:1px solid var(--border2);background:var(--surface2);color:var(--text3);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;transition:background .15s;}
   .act-btn.del:active{background:#FCEBEB;color:#E24B4A;}
@@ -121,15 +97,14 @@
   .act-btn.cal:active{background:var(--accent-light);}
 
   /* Inline rename */
-  .rename-form{flex-direction:column;gap:8px;margin-top:8px;}
+  .rename-form{display:flex;align-items:center;gap:6px;flex:1;min-width:0;margin-top:4px;}
+  .rename-input{flex:1;height:34px;border:1.5px solid var(--accent);border-radius:8px;padding:0 10px;font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--text);background:white;outline:none;min-width:0;}
+  .rename-ok{height:34px;padding:0 12px;border-radius:8px;border:none;background:var(--accent);color:white;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;cursor:pointer;flex-shrink:0;}
+  .rename-cancel{height:34px;padding:0 10px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:13px;cursor:pointer;flex-shrink:0;}
 
-  /* DRAG */
-  .drag-handle{width:20px;height:36px;display:flex;align-items:center;justify-content:center;cursor:grab;color:var(--text3);font-size:16px;flex-shrink:0;touch-action:none;user-select:none;-webkit-user-select:none;}
-  .drag-handle:active{cursor:grabbing;}
-  .habit-card.dragging{opacity:.35;pointer-events:none;}
-  .habit-card.drag-over-top{border-top:2.5px solid var(--accent);}
-  .habit-card.drag-over-bottom{border-bottom:2.5px solid var(--accent);}
-  .drag-ghost{position:fixed;pointer-events:none;z-index:500;opacity:.92;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.18);transform:scale(1.03);}
+  .empty-state{text-align:center;padding:48px 20px;color:var(--text3);}
+  .empty-icon{font-size:40px;margin-bottom:12px;opacity:.5;}
+  .empty-text{font-size:14px;line-height:1.7;}
 
   /* ADD BAR */
   .add-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surface);border-top:1px solid var(--border);padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:50;}
@@ -137,9 +112,8 @@
   .add-input{flex:1;height:42px;border:1.5px solid var(--border2);border-radius:12px;padding:0 12px;font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--text);background:var(--bg);outline:none;transition:border-color .2s;}
   .add-input:focus{border-color:var(--accent);background:white;}
   .add-input::placeholder{color:var(--text3);}
-  .add-type-btn{height:42px;padding:0 10px;border-radius:12px;border:1.5px solid var(--border2);background:var(--surface2);color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:border-color .15s,background .15s,color .15s;min-width:54px;text-align:center;}
-  .add-type-btn.mode-occasional{border-color:var(--purple);background:var(--purple-light);color:var(--purple);}
-  .add-type-btn.mode-quit{border-color:var(--red-mid);background:var(--red-light);color:var(--red);}
+  .add-type-btn{height:42px;padding:0 12px;border-radius:12px;border:1.5px solid var(--border2);background:var(--surface2);color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:border-color .15s,background .15s;}
+  .add-type-btn.bonus-mode{border-color:var(--purple);background:var(--purple-light);color:var(--purple);}
   .add-btn{width:42px;height:42px;border-radius:12px;border:none;background:var(--accent);color:white;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
   .add-btn:active{transform:scale(.95);background:var(--accent-dark);}
 
@@ -166,19 +140,16 @@
   .day-cell.empty{pointer-events:none;}
   .day-cell.future{color:var(--text3);opacity:.35;pointer-events:none;}
   .day-cell.done{background:var(--check);color:white;font-weight:500;}
-  .day-cell.done.occasional-done{background:var(--purple);}
-  .day-cell.done.quit-ok{background:var(--check);}
-  .day-cell.quit-ng{background:var(--red-light);color:var(--red);font-weight:500;}
+  .day-cell.done.bonus-done{background:var(--purple);}
   .day-cell.today{border-color:var(--accent);color:var(--accent);font-weight:700;}
   .day-cell.today.done{background:var(--check);border-color:var(--check);color:white;}
-  .day-cell:not(.done):not(.future):not(.empty):not(.quit-ng):active{background:var(--surface2);}
-  .cal-legend{display:flex;gap:10px;margin-top:14px;justify-content:center;flex-wrap:wrap;}
+  .day-cell.today.done.bonus-done{background:var(--purple);border-color:var(--purple);}
+  .day-cell:not(.done):not(.future):not(.empty):active{background:var(--surface2);}
+  .cal-legend{display:flex;gap:12px;margin-top:14px;justify-content:center;flex-wrap:wrap;}
   .legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);}
   .legend-dot{width:10px;height:10px;border-radius:50%;}
   .legend-dot.done{background:var(--check);}
-  .legend-dot.occasional-done{background:var(--purple);}
-  .legend-dot.quit-ok-dot{background:var(--check);}
-  .legend-dot.quit-ng-dot{background:var(--red-mid);}
+  .legend-dot.bonus-done{background:var(--purple);}
   .legend-dot.today-l{border:1.5px solid var(--accent);}
 
   /* SHEET */
@@ -221,79 +192,79 @@
   .restore-btn:active{background:#97C459;color:white;}
   .archive-empty{text-align:center;padding:48px 20px;color:var(--text3);font-size:14px;line-height:1.7;}
 
-  /* SETUP SCREEN */
+  /* SYNC SETUP SCREEN */
   .setup-body{padding:24px 20px 60px;max-width:480px;margin:0 auto;}
   .setup-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;}
-  .setup-card-title{font-size:14px;font-weight:700;margin-bottom:12px;}
+  .setup-card-title{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--text);}
   .setup-url-input{width:100%;height:44px;border:1.5px solid var(--border2);border-radius:10px;padding:0 12px;font-size:13px;font-family:'DM Mono',monospace;color:var(--text);background:var(--bg);outline:none;transition:border-color .2s;}
   .setup-url-input:focus{border-color:var(--accent);background:white;}
   .setup-url-input::placeholder{color:var(--text3);font-family:'Noto Sans JP',sans-serif;font-size:13px;}
-  .setup-name-input{width:100%;height:44px;border:1.5px solid var(--border2);border-radius:10px;padding:0 12px;font-size:14px;font-family:'Noto Sans JP',sans-serif;color:var(--text);background:var(--bg);outline:none;transition:border-color .2s;margin-bottom:10px;}
-  .setup-name-input:focus{border-color:var(--accent);background:white;}
-  .setup-save-btn{width:100%;height:44px;border-radius:10px;border:none;background:var(--accent);color:white;font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-top:10px;-webkit-tap-highlight-color:transparent;}
+  .setup-save-btn{width:100%;height:44px;border-radius:10px;border:none;background:var(--accent);color:white;font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-top:12px;-webkit-tap-highlight-color:transparent;}
   .setup-save-btn:active{background:var(--accent-dark);}
+  .setup-clear-btn{width:100%;height:40px;border-radius:10px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:14px;cursor:pointer;margin-top:8px;}
   .setup-status{font-size:12px;color:var(--text3);margin-top:10px;text-align:center;min-height:18px;}
   .setup-step{display:flex;gap:12px;margin-bottom:14px;align-items:flex-start;}
   .setup-num{width:24px;height:24px;border-radius:50%;background:var(--accent-light);color:var(--accent);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
   .setup-step-text{font-size:13px;color:var(--text2);line-height:1.6;}
   .setup-step-text b{color:var(--text);}
-  .group-item{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);margin-bottom:8px;}
-  .group-item-name{flex:1;font-size:14px;font-weight:500;}
-  .group-item-url{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
-  .group-del-btn{width:28px;height:28px;border-radius:50%;border:none;background:transparent;color:var(--text3);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-  .group-del-btn:active{background:var(--red-light);color:var(--red);}
 
   /* WELCOME SCREEN */
   .welcome-body{padding:40px 24px calc(40px + env(safe-area-inset-bottom));max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
   .welcome-title{font-size:34px;font-weight:700;letter-spacing:-1px;margin-bottom:4px;text-align:center;}
   .welcome-title span{color:var(--accent);}
-  .welcome-sub{font-size:13px;color:var(--text3);margin-bottom:28px;text-align:center;}
+  .welcome-sub{font-size:13px;color:var(--text3);margin-bottom:32px;text-align:center;}
+  .welcome-gas-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:20px;}
+  .welcome-gas-label{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .welcome-gas-input{width:100%;height:42px;border:1.5px solid var(--border2);border-radius:10px;padding:0 12px;font-size:12px;font-family:'DM Mono',monospace;color:var(--text);background:var(--bg);outline:none;transition:border-color .2s;}
+  .welcome-gas-input:focus{border-color:var(--accent);background:white;}
+  .welcome-gas-input::placeholder{color:var(--text3);font-family:'Noto Sans JP',sans-serif;font-size:13px;}
+  .welcome-gas-btn{width:100%;height:40px;border-radius:10px;border:none;background:var(--blue);color:white;font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-top:10px;-webkit-tap-highlight-color:transparent;}
+  .welcome-gas-btn:active{opacity:.8;}
+  .welcome-gas-status{font-size:11px;color:var(--text3);margin-top:8px;text-align:center;min-height:16px;}
   .welcome-section{width:100%;margin-bottom:20px;}
   .welcome-section-label{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
-  .welcome-btn-list{display:flex;flex-direction:column;gap:8px;width:100%;}
-  .welcome-item-btn{width:100%;padding:14px 18px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:500;cursor:pointer;text-align:left;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:space-between;}
-  .welcome-item-btn:active{background:var(--surface2);}
-  .welcome-item-sub{font-size:11px;color:var(--text3);margin-top:2px;}
-  .welcome-divider{width:100%;text-align:center;font-size:12px;color:var(--text3);margin:14px 0;}
+  .welcome-user-list{display:flex;flex-direction:column;gap:8px;width:100%;}
+  .welcome-user-btn{width:100%;padding:14px 18px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:500;cursor:pointer;text-align:left;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:space-between;}
+  .welcome-user-btn:active{background:var(--surface2);}
+  .welcome-divider{width:100%;text-align:center;font-size:12px;color:var(--text3);margin:16px 0;}
   .welcome-new-row{display:flex;gap:8px;width:100%;}
   .welcome-new-input{flex:1;height:44px;border:1.5px solid var(--border2);border-radius:12px;padding:0 14px;font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--text);background:var(--surface);outline:none;transition:border-color .2s;}
   .welcome-new-input:focus{border-color:var(--accent);}
   .welcome-new-input::placeholder{color:var(--text3);}
   .welcome-add-btn{height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--accent);color:white;font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
   .welcome-add-btn:active{background:var(--accent-dark);}
-  .welcome-back-btn{background:none;border:none;color:var(--text3);font-family:'Noto Sans JP',sans-serif;font-size:13px;cursor:pointer;margin-bottom:16px;padding:0;text-align:left;}
 
-  /* TOAST */
+  /* DRAG */
+  .drag-handle{width:20px;height:36px;display:flex;align-items:center;justify-content:center;cursor:grab;color:var(--text3);font-size:16px;flex-shrink:0;touch-action:none;user-select:none;-webkit-user-select:none;}
+  .drag-handle:active{cursor:grabbing;}
+  .habit-card.dragging{opacity:.35;pointer-events:none;}
+  .habit-card.drag-over-top{border-top:2.5px solid var(--accent);}
+  .habit-card.drag-over-bottom{border-bottom:2.5px solid var(--accent);}
+  .drag-ghost{position:fixed;pointer-events:none;z-index:500;opacity:.92;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.18);transform:scale(1.03);transition:none;}
   .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:white;font-size:13px;padding:10px 16px;border-radius:99px;opacity:0;transition:opacity .2s,transform .2s;z-index:300;white-space:nowrap;pointer-events:none;display:flex;align-items:center;gap:4px;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
 </style>
 </head>
 <body>
 
-<!-- WELCOME SCREEN (step1: グループ選択, step2: ユーザー選択) -->
+<!-- WELCOME SCREEN -->
 <div class="screen active" id="screen-welcome">
   <div class="welcome-body">
-    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;" id="welcome-step1">
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
       <div class="welcome-title">つづ<span>け</span>る</div>
-      <div class="welcome-sub" id="welcome-step1-sub">グループを選んでください</div>
-      <div class="welcome-section">
-        <div class="welcome-section-label">登録済みグループ</div>
-        <div class="welcome-btn-list" id="welcome-group-list"></div>
+      <div class="welcome-sub">あなたはだれですか？</div>
+
+      <!-- GAS URL入力（新しいデバイス用） -->
+      <div class="welcome-gas-card">
+        <div class="welcome-gas-label">🔗 家族共有URLを入力（既に使っている場合）</div>
+        <input class="welcome-gas-input" id="welcome-gas-input" type="url" placeholder="https://script.google.com/macros/s/...">
+        <button class="welcome-gas-btn" id="welcome-gas-btn">URLを読み込んでユーザーを取得</button>
+        <div class="welcome-gas-status" id="welcome-gas-status"></div>
       </div>
-      <div class="welcome-divider">新しいグループを作成</div>
-      <div class="welcome-new-row">
-        <input class="welcome-new-input" id="welcome-group-name" type="text" placeholder="グループ名（例：田中家）" maxlength="20">
-        <button class="welcome-add-btn" id="welcome-group-add-btn">作成</button>
-      </div>
-    </div>
-    <!-- Step2: ユーザー選択 -->
-    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;display:none;" id="welcome-step2">
-      <button class="welcome-back-btn" id="welcome-back-to-groups">← グループに戻る</button>
-      <div class="welcome-title" style="font-size:24px;" id="welcome-group-title">グループ名</div>
-      <div class="welcome-sub" id="welcome-user-sub">あなたはだれですか？</div>
+
       <div class="welcome-section" id="welcome-existing-section" style="display:none;">
         <div class="welcome-section-label">選んでください</div>
-        <div class="welcome-btn-list" id="welcome-user-list"></div>
+        <div class="welcome-user-list" id="welcome-user-list"></div>
       </div>
       <div class="welcome-divider">または新しくユーザーを作成</div>
       <div class="welcome-new-row">
@@ -315,7 +286,6 @@
       </div>
     </div>
     <div class="date-display" id="date-display"></div>
-    <div class="group-tabs" id="group-tabs"></div>
     <div class="user-tabs" id="user-tabs"></div>
   </div>
   <div class="main">
@@ -356,10 +326,10 @@
     <div class="cal-edit-hint" id="cal-edit-hint">日付をタップして過去のデータを編集できます</div>
   </div>
   <div class="cal-body">
-    <div class="stat-row" id="cal-stat-row">
+    <div class="stat-row">
       <div class="stat-card"><div class="stat-val" id="cal-streak">0</div><div class="stat-lbl" id="cal-streak-lbl">🔥 連続日数</div></div>
-      <div class="stat-card"><div class="stat-val" id="cal-total">0</div><div class="stat-lbl" id="cal-total-lbl">📅 累計達成</div></div>
-      <div class="stat-card"><div class="stat-val" id="cal-rate">—</div><div class="stat-lbl" id="cal-rate-lbl">📊 今月実施率</div></div>
+      <div class="stat-card"><div class="stat-val" id="cal-total">0</div><div class="stat-lbl">📅 累計達成</div></div>
+      <div class="stat-card"><div class="stat-val" id="cal-rate">—</div><div class="stat-lbl">📊 今月実施率</div></div>
     </div>
     <div class="month-nav">
       <button class="month-btn" id="prev-month">‹</button>
@@ -370,7 +340,11 @@
       <div class="dow-row"><div class="dow-cell">日</div><div class="dow-cell">月</div><div class="dow-cell">火</div><div class="dow-cell">水</div><div class="dow-cell">木</div><div class="dow-cell">金</div><div class="dow-cell">土</div></div>
       <div class="day-grid" id="day-grid"></div>
     </div>
-    <div class="cal-legend" id="cal-legend"></div>
+    <div class="cal-legend">
+      <div class="legend-item"><div class="legend-dot done"></div>達成済み</div>
+      <div class="legend-item" id="cal-legend-bonus" style="display:none;"><div class="legend-dot bonus-done"></div>ときどき実施</div>
+      <div class="legend-item"><div class="legend-dot today-l"></div>今日</div>
+    </div>
   </div>
 </div>
 
@@ -391,26 +365,25 @@
   <div class="cal-header">
     <div class="cal-header-top">
       <button class="back-btn" id="setup-back-btn">←</button>
-      <div class="cal-habit-name">グループ・共有の設定</div>
+      <div class="cal-habit-name">家族共有の設定</div>
     </div>
-    <div class="cal-edit-hint">グループごとに異なるGAS URLを設定できます</div>
+    <div class="cal-edit-hint">GAS URLを設定するとリアルタイムで家族と同期できます</div>
   </div>
   <div class="setup-body">
-    <div class="setup-card">
-      <div class="setup-card-title">📋 現在のグループ</div>
-      <div id="setup-current-group" style="font-size:14px;color:var(--text2);margin-bottom:16px;"></div>
-      <div class="setup-card-title" style="margin-top:0;">🔗 GAS URL（家族共有する場合）</div>
-      <input class="setup-url-input" id="gas-url-input" type="url" placeholder="https://script.google.com/macros/s/...">
-      <button class="setup-save-btn" id="setup-save-btn">このグループのURLを保存・接続</button>
-      <button style="width:100%;height:40px;border-radius:10px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:14px;cursor:pointer;margin-top:8px;" id="setup-clear-btn">このグループの接続を解除</button>
-      <div class="setup-status" id="setup-status"></div>
-    </div>
     <div class="setup-card">
       <div class="setup-card-title">📋 GASのセットアップ手順（1回だけ）</div>
       <div class="setup-step"><div class="setup-num">1</div><div class="setup-step-text"><b>Googleスプレッドシートを新規作成</b><br>drive.google.com →「新規」→「Googleスプレッドシート」</div></div>
       <div class="setup-step"><div class="setup-num">2</div><div class="setup-step-text"><b>Apps Scriptを開く</b><br>メニュー「拡張機能」→「Apps Script」</div></div>
       <div class="setup-step"><div class="setup-num">3</div><div class="setup-step-text"><b>コードを貼り付けて保存</b><br>既存コードを全て消してGASコードを貼り付け → 💾保存</div></div>
       <div class="setup-step"><div class="setup-num">4</div><div class="setup-step-text"><b>Webアプリとして公開</b><br>「デプロイ」→「新しいデプロイ」→ 種類「ウェブアプリ」→ アクセス「全員」→「デプロイ」→ URLをコピー</div></div>
+      <div class="setup-step"><div class="setup-num">5</div><div class="setup-step-text"><b>URLを全員のアプリに入力</b><br>下の欄にURLを貼り付けて「保存して接続」。子どものスマホにも同じURLを設定</div></div>
+    </div>
+    <div class="setup-card">
+      <div class="setup-card-title">🔗 GAS URL</div>
+      <input class="setup-url-input" id="gas-url-input" type="url" placeholder="https://script.google.com/macros/s/...">
+      <button class="setup-save-btn" id="setup-save-btn">保存して接続</button>
+      <button class="setup-clear-btn" id="setup-clear-btn">接続を解除してローカル保存に戻す</button>
+      <div class="setup-status" id="setup-status"></div>
     </div>
   </div>
 </div>
@@ -429,7 +402,7 @@
     </div>
     <button class="sheet-btn" id="sync-setup-btn">
       <div class="btn-icon sync-icon">🔗</div>
-      <div><div>グループ・共有の設定</div><div class="btn-desc" id="sync-status-label">未設定（ローカル保存中）</div></div>
+      <div><div>家族共有の設定</div><div class="btn-desc" id="sync-status-label">未設定（ローカル保存中）</div></div>
     </button>
     <hr class="sheet-divider">
     <button class="sheet-btn" id="rename-user-btn">
@@ -439,6 +412,10 @@
     <button class="sheet-btn" id="delete-user-btn">
       <div class="btn-icon user-del">🗑️</div>
       <div><div>このユーザーを削除</div><div class="btn-desc">習慣データごと削除されます</div></div>
+    </button>
+    <button class="sheet-btn" id="switch-user-btn">
+      <div class="btn-icon" style="background:var(--surface2);">🔄</div>
+      <div><div>ユーザーを切り替える</div><div class="btn-desc">別のユーザーとして使う</div></div>
     </button>
     <hr class="sheet-divider">
     <button class="sheet-btn" id="archive-btn">
@@ -462,13 +439,10 @@
 <canvas id="confetti-canvas" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:400;display:none;"></canvas>
 
 <script>
-// ── CONSTANTS ──
 const LOCAL_KEY='tsuzukeru_v3';
-const GROUPS_KEY='tsuzukeru_groups';   // [{id,name,gasUrl}]
-const CURRENT_GROUP_KEY='tsuzukeru_current_group';
+const GAS_URL_KEY='tsuzukeru_gas_url';
 const PINNED_KEY='tsuzukeru_pinned_user';
 const PARENT_KEY='tsuzukeru_parent_mode';
-const TYPES=['daily','occasional','quit']; // 毎日・ときどき・やめる！
 
 function localDateStr(d){const dt=d||new Date();return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
 function localDateOffset(n){const d=new Date();d.setDate(d.getDate()-n);return localDateStr(d);}
@@ -476,76 +450,55 @@ const TODAY=localDateStr();
 
 let calHabitIdx=0,calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
 let confettiActive=false;
-let addType='daily'; // 現在の追加種別
+let addingBonus=false; // おまけモードフラグ
 
-// ── GROUPS ──
-function loadGroups(){try{return JSON.parse(localStorage.getItem(GROUPS_KEY))||[];}catch{return[];}}
-function saveGroups(g){localStorage.setItem(GROUPS_KEY,JSON.stringify(g));}
-function getCurrentGroupId(){return localStorage.getItem(CURRENT_GROUP_KEY)||'';}
-function setCurrentGroupId(id){localStorage.setItem(CURRENT_GROUP_KEY,id);}
-function getCurrentGroup(){const id=getCurrentGroupId();return loadGroups().find(g=>g.id===id)||null;}
-function getGasUrl(){const g=getCurrentGroup();return g?g.gasUrl||'':'';}
-function setGasUrl(url){
-  const groups=loadGroups();const id=getCurrentGroupId();
-  const g=groups.find(g=>g.id===id);if(g){g.gasUrl=url;saveGroups(groups);}
-}
-function clearGasUrl(){setGasUrl('');}
-
-// ── PINS & MODE ──
-function getPinnedUserId(){return localStorage.getItem(PINNED_KEY+getCurrentGroupId())||'';}
-function setPinnedUserId(id){localStorage.setItem(PINNED_KEY+getCurrentGroupId(),id);}
+/* ── ピン・親モード ── */
+function getPinnedUserId(){return localStorage.getItem(PINNED_KEY)||'';}
+function setPinnedUserId(id){localStorage.setItem(PINNED_KEY,id);}
 function isParentMode(){return localStorage.getItem(PARENT_KEY)==='1';}
 function setParentMode(v){localStorage.setItem(PARENT_KEY,v?'1':'0');}
 
-// ── SYNC DOT ──
+/* ── GAS ── */
+function getGasUrl(){return localStorage.getItem(GAS_URL_KEY)||'';}
+function setGasUrl(url){localStorage.setItem(GAS_URL_KEY,url);}
+function clearGasUrl(){localStorage.removeItem(GAS_URL_KEY);}
+
+/* ── SYNC DOT ── */
 function setSyncDot(state){
-  const dot=document.getElementById('sync-dot');if(!dot)return;
+  const dot=document.getElementById('sync-dot');
   dot.className='sync-dot'+(state!=='off'?' '+state:'');
   dot.title={ok:'同期済み',err:'同期エラー',syncing:'同期中…',off:'ローカル保存'}[state]||'';
 }
 
-// ── REMOTE ──
+/* ── REMOTE ── */
 async function remoteLoad(url){
   const u=url||getGasUrl();if(!u)return null;
   try{const res=await fetch(u,{cache:'no-store'});const data=await res.json();return data&&data.users?data:null;}
-  catch{return null;}
+  catch(e){return null;}
 }
 async function remoteSave(data){
   const url=getGasUrl();if(!url)return false;
   setSyncDot('syncing');
   try{await fetch(url,{method:'POST',body:JSON.stringify(data)});setSyncDot('ok');return true;}
-  catch{setSyncDot('err');return false;}
+  catch(e){setSyncDot('err');return false;}
 }
 
-// ── LOCAL DATA (per group) ──
-function groupDataKey(){return LOCAL_KEY+'_'+getCurrentGroupId();}
-function loadLocal(){try{return JSON.parse(localStorage.getItem(groupDataKey()))||null;}catch{return null;}}
-function saveLocal(d){localStorage.setItem(groupDataKey(),JSON.stringify(d));}
-
-function migrateHabit(h){
-  // type フィールドのマイグレーション
-  if(!h.type){h.type=h.bonus?'occasional':'daily';}
-  delete h.bonus;
-  return h;
-}
+/* ── LOCAL ── */
+function loadLocal(){try{return JSON.parse(localStorage.getItem(LOCAL_KEY))||null;}catch{return null;}}
+function saveLocal(d){localStorage.setItem(LOCAL_KEY,JSON.stringify(d));}
 
 function initLocal(){
   let all=loadLocal();
   if(!all||!all.users||!all.users.length){
-    // デフォルトグループ（g_default）のみ旧データをマイグレーション
     let oldH=[],oldA=[];
-    if(getCurrentGroupId()==='g_default'){
-      try{
-        const o=JSON.parse(localStorage.getItem(LOCAL_KEY));
-        if(o&&o.users){const u=o.users[0];if(u){oldH=u.habits||[];oldA=u.archive||[];}}
-      }catch{}
-    }
+    try{const o=JSON.parse(localStorage.getItem('tsuzukeru_v2'));if(o&&o.habits){oldH=o.habits;oldA=o.archive||[];}}catch{}
     all={currentUserId:'u1',users:[{id:'u1',name:'わたし',habits:oldH,archive:oldA}]};
     saveLocal(all);
   }
+  // おまけ項目マイグレーション: bonus フィールドがなければ false をセット
   (all.users||[]).forEach(u=>{
-    u.habits=(u.habits||[]).map(migrateHabit);
-    u.archive=(u.archive||[]).map(migrateHabit);
+    (u.habits||[]).forEach(h=>{if(h.bonus===undefined)h.bonus=false;});
+    (u.archive||[]).forEach(h=>{if(h.bonus===undefined)h.bonus=false;});
   });
   return all;
 }
@@ -553,7 +506,6 @@ function initLocal(){
 let _cache=null;
 function getCache(){if(!_cache)_cache=initLocal();return _cache;}
 function setCache(d){_cache=d;saveLocal(d);}
-function resetCache(){_cache=null;}
 function getCurrentUser(){const all=getCache();return all.users.find(u=>u.id===all.currentUserId)||all.users[0];}
 function getUserData(){const u=getCurrentUser();return{habits:u.habits||[],archive:u.archive||[]};}
 
@@ -562,7 +514,7 @@ async function saveData(){
   if(getGasUrl()){const ok=await remoteSave(all);if(!ok)setSyncDot('err');}
 }
 
-// ── SYNC ──
+/* ── SYNC ── */
 async function syncFromRemote(silent=false){
   if(!getGasUrl()){setSyncDot('off');return;}
   if(!silent)setSyncDot('syncing');
@@ -572,71 +524,33 @@ async function syncFromRemote(silent=false){
   local.users.forEach(lu=>{if(!merged.users.find(ru=>ru.id===lu.id))merged.users.push(lu);});
   merged.currentUserId=local.currentUserId;
   if(!merged.users.find(u=>u.id===merged.currentUserId))merged.currentUserId=merged.users[0].id;
-  // マイグレーション
-  (merged.users||[]).forEach(u=>{
-    u.habits=(u.habits||[]).map(migrateHabit);
-    u.archive=(u.archive||[]).map(migrateHabit);
-  });
-  setCache(merged);renderGroupTabs();renderUserTabs();render();
+  setCache(merged);renderUserTabs();render();
   if(!silent)setSyncDot('ok');
 }
 
-// ── HELPERS ──
+/* ── HELPERS ── */
 function dateKey(y,m,day){return`${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;}
-
 function getStreak(habit){
-  if(habit.type!=='daily')return 0;
+  if(habit.bonus)return 0; // おまけは連続計算しない
   const logs=habit.logs||{};let streak=0;const s=logs[TODAY]?0:1;
   for(let i=s;i<730;i++){const k=localDateOffset(i);if(logs[k])streak++;else break;}
   return streak;
 }
-
-// やめる！用：連続我慢日数（チェック＝我慢できた）
-function getQuitStreak(habit){
-  const logs=habit.logs||{};let streak=0;const s=logs[TODAY]?0:1;
-  for(let i=s;i<730;i++){const k=localDateOffset(i);if(logs[k])streak++;else break;}
-  return streak;
-}
-
 function getLast7(habit){
   const logs=habit.logs||{},out=[];
-  for(let i=6;i>=0;i--){const k=localDateOffset(i);out.push({filled:!!logs[k],isToday:i===0});}
+  for(let i=6;i>=0;i--){const k=localDateOffset(i);out.push({filled:!!(habit.logs||{})[k],isToday:i===0});}
   return out;
 }
 function getTotalDays(h){return Object.values(h.logs||{}).filter(Boolean).length;}
-
-// やめる！用：今月やってしまった日数
-function getQuitMonthStats(habit){
-  const logs=habit.logs||{};
-  const nl=new Date(),ty=nl.getFullYear(),tm=nl.getMonth(),td=nl.getDate();
-  const dim=new Date(ty,tm+1,0).getDate();
-  const elapsed=td;
-  let ok=0,ng=0;
-  for(let d=1;d<=elapsed;d++){
-    const k=dateKey(ty,tm,d);
-    if(logs[k])ok++;else ng++;
-  }
-  return{ok,ng,elapsed};
+function milestoneLabel(s){
+  if(s>=365)return'🏆 1年達成！';if(s>=100)return'💫 100日達成！';
+  if(s>=30)return'🔥 30日連続！';if(s>=14)return'⭐ 2週間達成！';
+  if(s>=7)return'✨ 1週間達成！';return'';
 }
-
-function milestoneLabel(streak,type){
-  if(type==='quit'){
-    if(streak>=365)return'🏆 禁1年達成！';
-    if(streak>=100)return'💫 禁100日！';
-    if(streak>=30)return'🔥 禁30日！';
-    if(streak>=14)return'⭐ 禁2週間！';
-    if(streak>=7)return'✨ 禁1週間！';
-    return'';
-  }
-  if(streak>=365)return'🏆 1年達成！';if(streak>=100)return'💫 100日達成！';
-  if(streak>=30)return'🔥 30日連続！';if(streak>=14)return'⭐ 2週間達成！';
-  if(streak>=7)return'✨ 1週間達成！';return'';
-}
-
 function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-
 function getPerfectStreak(habits){
-  const main=habits.filter(h=>h.type==='daily');
+  // おまけ項目(bonus=true)は除外して計算
+  const main=habits.filter(h=>!h.bonus);
   if(!main.length)return 0;let streak=0;
   for(let i=0;i<730;i++){
     const k=localDateOffset(i);
@@ -646,7 +560,6 @@ function getPerfectStreak(habits){
   }
   return streak;
 }
-
 function showToast(msg){
   const t=document.getElementById('toast');t.innerHTML=escHtml(msg);t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2400);
@@ -684,84 +597,47 @@ function launchConfetti(){
   requestAnimationFrame(draw);
 }
 
-// ── WELCOME: STEP 1 - グループ選択 ──
-function renderWelcomeStep1(){
-  document.getElementById('welcome-step1').style.display='flex';
-  document.getElementById('welcome-step2').style.display='none';
-  document.querySelector('.welcome-sub').textContent='グループを選んでください';
-  const groups=loadGroups();
-  const list=document.getElementById('welcome-group-list');list.innerHTML='';
-  if(!groups.length){
-    list.innerHTML='<div style="font-size:13px;color:var(--text3);text-align:center;padding:8px 0;">まだグループがありません<br>下から最初のグループを作成してください</div>';
-    document.getElementById('welcome-step1-sub').textContent='グループを作成してください';
-  }else{
-    document.getElementById('welcome-step1-sub').textContent='グループを選んでください';
-  }
-  groups.forEach(g=>{
-    const btn=document.createElement('button');
-    btn.className='welcome-item-btn';
-    const gasLabel=g.gasUrl?'<span style="font-size:11px;color:var(--blue);">🔗 共有あり</span>':'<span style="font-size:11px;color:var(--text3);">ローカル</span>';
-    btn.innerHTML=`<div><div>${escHtml(g.name)}</div></div>${gasLabel}<span style="color:var(--text3);font-size:16px;">→</span>`;
-    btn.addEventListener('click',()=>{setCurrentGroupId(g.id);resetCache();renderWelcomeStep2(g);});
-    list.appendChild(btn);
-  });
-}
-
-// ── WELCOME: STEP 2 - ユーザー選択 ──
-async function renderWelcomeStep2(group){
-  document.getElementById('welcome-step1').style.display='none';
-  const step2=document.getElementById('welcome-step2');
-  step2.style.display='flex';step2.style.flexDirection='column';
-  document.getElementById('welcome-group-title').textContent=group.name;
-
-  // GASがあればリモートから取得
-  if(group.gasUrl){
-    document.getElementById('welcome-user-sub').textContent='データを読み込み中…';
-    setSyncDot('syncing');
-    const remote=await remoteLoad(group.gasUrl);
-    if(remote){
-      const local=getCache();
-      const merged={...remote};
-      local.users.forEach(lu=>{if(!merged.users.find(ru=>ru.id===lu.id))merged.users.push(lu);});
-      merged.currentUserId=local.currentUserId;
-      if(!merged.users.find(u=>u.id===merged.currentUserId))merged.currentUserId=merged.users[0].id;
-      (merged.users||[]).forEach(u=>{u.habits=(u.habits||[]).map(migrateHabit);u.archive=(u.archive||[]).map(migrateHabit);});
-      setCache(merged);setSyncDot('ok');
-    }else{setSyncDot('err');}
-  }else{setSyncDot('off');}
-
-  document.getElementById('welcome-user-sub').textContent='あなたはだれですか？';
+/* ── WELCOME SCREEN ── */
+function renderWelcomeScreen(){
   const all=getCache();
+  const list=document.getElementById('welcome-user-list');
+  list.innerHTML='';
   const sec=document.getElementById('welcome-existing-section');
-  const list=document.getElementById('welcome-user-list');list.innerHTML='';
   sec.style.display=all.users.length?'block':'none';
+  // GAS URLがあれば入力欄に表示
+  document.getElementById('welcome-gas-input').value=getGasUrl();
   all.users.forEach(u=>{
     const btn=document.createElement('button');
-    btn.className='welcome-item-btn';
+    btn.className='welcome-user-btn';
     btn.innerHTML=escHtml(u.name)+'<span style="color:var(--text3);font-size:16px;">→</span>';
     btn.addEventListener('click',()=>{
       setPinnedUserId(u.id);
       const a=getCache();a.currentUserId=u.id;setCache(a);
-      showScreen('screen-list');renderGroupTabs();renderUserTabs();render();
+      showScreen('screen-list');renderUserTabs();render();
     });
     list.appendChild(btn);
   });
 }
 
-document.getElementById('welcome-back-to-groups').addEventListener('click',()=>renderWelcomeStep1());
-
-document.getElementById('welcome-group-add-btn').addEventListener('click',()=>{
-  const name=document.getElementById('welcome-group-name').value.trim();
-  if(!name)return;
-  const groups=loadGroups();
-  const id='g'+Date.now();
-  groups.push({id,name,gasUrl:''});
-  saveGroups(groups);
-  document.getElementById('welcome-group-name').value='';
-  setCurrentGroupId(id);resetCache();
-  renderWelcomeStep2({id,name,gasUrl:''});
+// ウェルカム画面のGAS URL読み込みボタン
+document.getElementById('welcome-gas-btn').addEventListener('click',async()=>{
+  const url=document.getElementById('welcome-gas-input').value.trim();
+  const status=document.getElementById('welcome-gas-status');
+  if(!url){status.textContent='URLを入力してください';return;}
+  status.textContent='読み込み中…';
+  const remote=await remoteLoad(url);
+  if(!remote){status.textContent='❌ 接続できませんでした。URLを確認してください';return;}
+  setGasUrl(url);
+  // リモートデータをローカルにマージ
+  const local=getCache();
+  const merged={...remote};
+  local.users.forEach(lu=>{if(!merged.users.find(ru=>ru.id===lu.id))merged.users.push(lu);});
+  merged.currentUserId=local.currentUserId;
+  if(!merged.users.find(u=>u.id===merged.currentUserId))merged.currentUserId=merged.users[0].id;
+  setCache(merged);setSyncDot('ok');
+  status.textContent=`✅ ${merged.users.length}人のユーザーを取得しました`;
+  renderWelcomeScreen();
 });
-document.getElementById('welcome-group-name').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('welcome-group-add-btn').click();});
 
 document.getElementById('welcome-add-btn').addEventListener('click',async()=>{
   const input=document.getElementById('welcome-new-name');
@@ -769,44 +645,13 @@ document.getElementById('welcome-add-btn').addEventListener('click',async()=>{
   const a=getCache();const id='u'+Date.now();
   a.users.push({id,name,habits:[],archive:[]});
   a.currentUserId=id;setCache(a);await saveData();
-  input.value='';setPinnedUserId(id);
-  showScreen('screen-list');renderGroupTabs();renderUserTabs();render();
+  input.value='';
+  setPinnedUserId(id);
+  showScreen('screen-list');renderUserTabs();render();
 });
 document.getElementById('welcome-new-name').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('welcome-add-btn').click();});
 
-// ── GROUP TABS ──
-function renderGroupTabs(){
-  const groups=loadGroups();
-  const currentId=getCurrentGroupId();
-  const tabs=document.getElementById('group-tabs');tabs.innerHTML='';
-  // グループが1つだけなら非表示
-  if(groups.length<=1){tabs.style.display='none';return;}
-  tabs.style.display='flex';
-  groups.forEach(g=>{
-    const btn=document.createElement('button');
-    btn.className='group-tab'+(g.id===currentId?' active':'');
-    btn.textContent=g.name+(g.gasUrl?'🔗':'');
-    btn.addEventListener('click',async()=>{
-      if(g.id===getCurrentGroupId())return;
-      setCurrentGroupId(g.id);resetCache();
-      // GASがあれば同期
-      if(g.gasUrl){setSyncDot('syncing');await syncFromRemote();}else{setSyncDot('off');}
-      // ピンされたユーザーへ切り替え
-      const pinned=getPinnedUserId();const all=getCache();
-      if(pinned&&all.users.find(u=>u.id===pinned)){all.currentUserId=pinned;setCache(all);}
-      else if(all.users.length){all.currentUserId=all.users[0].id;setCache(all);}
-      renderGroupTabs();renderUserTabs();render();
-    });
-    tabs.appendChild(btn);
-  });
-  // ＋グループ追加ボタン → タップでインライン入力
-  const addBtn=document.createElement('button');
-  addBtn.className='add-group-tab-btn';addBtn.id='add-group-tab-btn';addBtn.textContent='＋グループ';
-  addBtn.addEventListener('click',()=>showAddGroupForm());
-  tabs.appendChild(addBtn);
-}
-
-// ── USER TABS ──
+/* ── USER TABS ── */
 function renderUserTabs(){
   const all=getCache();const tabs=document.getElementById('user-tabs');tabs.innerHTML='';
   const parent=isParentMode();const pinnedId=getPinnedUserId();
@@ -815,81 +660,42 @@ function renderUserTabs(){
     const btn=document.createElement('button');
     btn.className='user-tab'+(u.id===all.currentUserId?' active':'');
     btn.textContent=u.name;
-    btn.addEventListener('click',()=>{const a=getCache();a.currentUserId=u.id;setCache(a);renderUserTabs();render();});
+    btn.addEventListener('click',()=>{
+      const a=getCache();a.currentUserId=u.id;setCache(a);renderUserTabs();render();
+    });
     tabs.appendChild(btn);
   });
-  // ＋ユーザー追加ボタン → タップでインライン入力
-  const addBtn=document.createElement('button');
-  addBtn.className='add-user-btn';addBtn.title='ユーザーを追加';addBtn.textContent='+';
-  addBtn.addEventListener('click',()=>showAddUserForm());
-  tabs.appendChild(addBtn);
+  if(parent){
+    const addBtn=document.createElement('button');
+    addBtn.className='add-user-btn';addBtn.title='ユーザーを追加';addBtn.textContent='+';
+    addBtn.addEventListener('click',()=>{
+      const name=prompt('新しいユーザー名を入力してください');
+      if(!name||!name.trim())return;
+      const a=getCache();const id='u'+Date.now();
+      a.users.push({id,name:name.trim(),habits:[],archive:[]});
+      a.currentUserId=id;setCache(a);saveData();renderUserTabs();render();
+    });
+    tabs.appendChild(addBtn);
+  }
 }
 
-
-// ── INLINE ADD FORMS (prompt()の代わり) ──
-function showAddUserForm(){
-  const existing=document.getElementById('inline-add-overlay');if(existing)existing.remove();
-  const ov=document.createElement('div');
-  ov.id='inline-add-overlay';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:250;display:flex;align-items:flex-end;justify-content:center;';
-  ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp .24s cubic-bezier(.22,1,.36,1);"><div style="font-size:15px;font-weight:700;margin-bottom:16px;">ユーザーを追加</div><div style="display:flex;gap:8px;"><input id="iai" type="text" placeholder="名前を入力…" maxlength="20" style="flex:1;height:44px;border:1.5px solid var(--accent);border-radius:12px;padding:0 14px;font-family:inherit;font-size:14px;color:var(--text);background:white;outline:none;"><button id="iao" style="height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">追加</button></div><button id="iac" style="width:100%;margin-top:10px;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;">キャンセル</button></div>`;
-  document.body.appendChild(ov);
-  const inp=ov.querySelector('#iai');setTimeout(()=>inp.focus(),50);
-  const doAdd=async()=>{
-    const name=inp.value.trim();if(!name)return;
-    const a=getCache();const id='u'+Date.now();
-    a.users.push({id,name,habits:[],archive:[]});
-    a.currentUserId=id;setCache(a);setPinnedUserId(id);
-    await saveData();ov.remove();renderGroupTabs();renderUserTabs();render();
-    showToast(`「${name}」を追加しました`);
-  };
-  ov.querySelector('#iao').addEventListener('click',doAdd);
-  inp.addEventListener('keydown',e=>{if(e.key==='Enter')doAdd();if(e.key==='Escape')ov.remove();});
-  ov.querySelector('#iac').addEventListener('click',()=>ov.remove());
-  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
-}
-
-function showAddGroupForm(){
-  const existing=document.getElementById('inline-add-overlay');if(existing)existing.remove();
-  const ov=document.createElement('div');
-  ov.id='inline-add-overlay';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:250;display:flex;align-items:flex-end;justify-content:center;';
-  ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp .24s cubic-bezier(.22,1,.36,1);"><div style="font-size:15px;font-weight:700;margin-bottom:16px;">グループを追加</div><div style="display:flex;gap:8px;"><input id="agi" type="text" placeholder="グループ名（例：田中家）" maxlength="20" style="flex:1;height:44px;border:1.5px solid var(--blue);border-radius:12px;padding:0 14px;font-family:inherit;font-size:14px;color:var(--text);background:white;outline:none;"><button id="ago" style="height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--blue);color:white;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">作成</button></div><button id="agc" style="width:100%;margin-top:10px;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;">キャンセル</button></div>`;
-  document.body.appendChild(ov);
-  const inp=ov.querySelector('#agi');setTimeout(()=>inp.focus(),50);
-  const doAdd=()=>{
-    const name=inp.value.trim();if(!name)return;
-    const g2=loadGroups();const id='g'+Date.now();
-    g2.push({id,name,gasUrl:''});saveGroups(g2);
-    setCurrentGroupId(id);resetCache();initLocal();
-    ov.remove();renderGroupTabs();renderUserTabs();render();
-    showToast(`グループ「${name}」を作成しました`);
-  };
-  ov.querySelector('#ago').addEventListener('click',doAdd);
-  inp.addEventListener('keydown',e=>{if(e.key==='Enter')doAdd();if(e.key==='Escape')ov.remove();});
-  ov.querySelector('#agc').addEventListener('click',()=>ov.remove());
-  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
-}
-
-// ── ADD TYPE TOGGLE ──
-const TYPE_CYCLE=['daily','occasional','quit'];
-const TYPE_LABEL={'daily':'毎日','occasional':'ときどき','quit':'やめる！'};
+/* ── ADD TYPE TOGGLE ── */
 document.getElementById('add-type-btn').addEventListener('click',()=>{
-  const cur=TYPE_CYCLE.indexOf(addType);
-  addType=TYPE_CYCLE[(cur+1)%TYPE_CYCLE.length];
+  addingBonus=!addingBonus;
   const btn=document.getElementById('add-type-btn');
-  btn.textContent=TYPE_LABEL[addType];
-  btn.className='add-type-btn'+(addType==='occasional'?' mode-occasional':addType==='quit'?' mode-quit':'');
-  const placeholders={'daily':'新しい習慣を追加…','occasional':'ときどき習慣を追加（進捗に影響しない）…','quit':'やめたい習慣を入力… チェック＝今日は我慢できた'};
-  document.getElementById('add-input').placeholder=placeholders[addType];
+  btn.textContent=addingBonus?'ときどき':'毎日';
+  btn.classList.toggle('bonus-mode',addingBonus);
+  document.getElementById('add-input').placeholder=addingBonus?'ときどき習慣を追加（進捗に影響しない）…':'新しい習慣を追加…';
 });
 
-// ── RENDER LIST ──
+/* ── RENDER LIST ── */
 function render(){
   const {habits}=getUserData();
   const now=new Date();const wd=['日','月','火','水','木','金','土'][now.getDay()];
   document.getElementById('date-display').textContent=`${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日（${wd}）`;
-  const mainHabits=habits.filter(h=>h.type==='daily');
+
+  // 進捗はメイン習慣のみ
+  const mainHabits=habits.filter(h=>!h.bonus);
   const total=mainHabits.length,done=mainHabits.filter(h=>(h.logs||{})[TODAY]).length;
   const isPerfect=total>0&&done===total;
   document.getElementById('progress-text').textContent=`${done} / ${total} 完了`;
@@ -906,9 +712,11 @@ function render(){
     if(!perfectRow.dataset.wasComplete)launchConfetti();
     perfectRow.dataset.wasComplete='1';
   }else{perfectRow.style.display='none';perfectRow.dataset.wasComplete='';}
+
   const {archive}=getUserData();
   const badge=document.getElementById('archive-badge');
   if(badge){badge.textContent=archive.length;badge.style.display=archive.length>0?'inline':'none';}
+
   const list=document.getElementById('habit-list');
   if(!habits.length){
     list.innerHTML=`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">まだ習慣がありません<br>下のフォームから追加してください</div></div>`;
@@ -916,72 +724,44 @@ function render(){
   }
   list.innerHTML='';
 
+  // habits配列の順番をそのまま表示（ユーザーが並べた順を尊重）
+  // ドラッグで自由に並び替え可能
   habits.forEach(habit=>{
     const idx=habits.indexOf(habit);
     const checkedToday=!!(habit.logs||{})[TODAY];
-    const type=habit.type||'daily';
-    const isQuit=type==='quit';
-    const isOccasional=type==='occasional';
-
-    // カード色
-    let cardClass='habit-card';
-    if(type==='occasional')cardClass+=' type-occasional';
-    if(type==='quit')cardClass+=' type-quit';
-    if(checkedToday)cardClass+=' checked';
-
-    // バッジ
-    let tagHtml='';
-    if(isOccasional)tagHtml='<span class="type-tag occasional">ときどき</span>';
-    if(isQuit)tagHtml='<span class="type-tag quit">やめる！</span>';
-
-    // ストリークとバッジ
-    let streakHtml='';
-    if(isQuit){
-      const qs=getQuitStreak(habit);
-      const {ok,ng}=getQuitMonthStats(habit);
-      const badgeClass=checkedToday?'quit-resist':'quit-fail';
-      const badgeText=qs>0?`我慢${qs}日継続中`:'今日はやってしまった';
-      streakHtml=`<div class="streak-badge ${badgeClass}">${badgeText}</div><div class="days-label">今月${ng}日やってしまった</div>`;
-    }else if(isOccasional){
-      const totalDays=getTotalDays(habit);
-      streakHtml=`<div class="streak-badge occasional-badge">累計${totalDays}回</div>`;
-    }else{
-      const streak=getStreak(habit);const totalDays=getTotalDays(habit);
-      const sc=checkedToday?'done-today':streak>=7?'high':'';
-      streakHtml=`<div class="streak-badge ${sc}">🔥 ${streak}日連続</div><div class="days-label">累計${totalDays}日</div>`;
-    }
-
-    // 直近7日ドット
+    const isBonus=!!habit.bonus;
+    const streak=isBonus?0:getStreak(habit);
     const last7=getLast7(habit);
+    const totalDays=getTotalDays(habit);
+    const milestone=isBonus?'':(milestoneLabel(streak));
+    const streakClass=isBonus?'bonus-badge':checkedToday?'done-today':streak>=7?'high':'';
+
     const dots=last7.map(d=>{
       let cls='dot';
-      if(d.filled){
-        if(isQuit)cls+=' filled quit-ok';
-        else if(isOccasional)cls+=' filled occasional-dot';
-        else cls+=d.isToday?' filled today-dot':' filled';
-      }else if(isQuit&&!d.isToday){
-        // やめる！で未チェック=やってしまった日は赤ドット
-        cls+=' filled quit-ng';
-      }
+      if(d.filled&&d.isToday)cls+=isBonus?' filled bonus-dot today-dot':' filled today-dot';
+      else if(d.filled)cls+=isBonus?' filled bonus-dot':' filled';
       return`<div class="${cls}"></div>`;
     }).join('');
 
-    const streak2=isQuit?getQuitStreak(habit):getStreak(habit);
-    const milestone=milestoneLabel(streak2,type);
-
     const card=document.createElement('div');
-    card.className=cardClass;
-    card.dataset.habitIdx=idx;
+    card.className='habit-card'+(isBonus?' bonus':'')+(checkedToday?' checked':'');
+    card.dataset.habitIdx=idx; // オリジナル配列でのインデックス
+
+    const badgeHtml=isBonus?'<span class="bonus-tag">ときどき</span>':'';
+    const streakHtml=isBonus
+      ?`<div class="streak-badge bonus-badge">累計${totalDays}回</div>`
+      :`<div class="streak-badge ${streakClass}">🔥 ${streak}日連続</div><div class="days-label">累計${totalDays}日</div>`;
+
     card.innerHTML=`
       <div class="card-top">
         <div class="drag-handle" title="ドラッグして並び替え">⠿</div>
         <div class="check-box"><svg class="check-mark" viewBox="0 0 12 9"><path d="M1 4.5L4.5 8L11 1"/></svg></div>
         <div class="habit-name-wrap">
-          <span class="habit-name">${escHtml(habit.name)}${tagHtml}</span>
+          <span class="habit-name">${escHtml(habit.name)}${badgeHtml}</span>
         </div>
         <div class="card-actions">
           <button class="act-btn del" data-idx="${idx}" title="削除">✕</button>
-          <button class="act-btn edit" data-idx="${idx}" title="編集">✏️</button>
+          <button class="act-btn edit" data-idx="${idx}" title="名前を変更">✏️</button>
           <button class="act-btn cal" data-idx="${idx}" title="カレンダー">📅</button>
         </div>
       </div>
@@ -992,7 +772,7 @@ function render(){
         ${milestone?`<span class="milestone">${milestone}</span>`:''}
       </div>`;
 
-    // チェック
+    // toggle check
     card.addEventListener('click',async(e)=>{
       if(e.target.closest('.act-btn')||e.target.closest('.rename-form')||e.target.closest('.drag-handle'))return;
       const a=getCache();const u=a.users.find(u=>u.id===a.currentUserId);
@@ -1001,7 +781,7 @@ function render(){
       setCache(a);render();await saveData();
     });
 
-    // ドラッグ
+    // drag handle
     const handle=card.querySelector('.drag-handle');
     initDrag(handle,card,list);
 
@@ -1018,49 +798,56 @@ function render(){
       const card=btn.closest('.habit-card');
       const habit=getUserData().habits[idx];
       const currentName=habit.name;
-      const currentType=habit.type||'daily';
-      card.querySelector('.card-bottom').style.display='none';
-      const form=document.createElement('div');
-      form.style.cssText='display:flex;flex-direction:column;gap:8px;margin-top:8px;';
-      const typeColors={'daily':['var(--accent)','var(--accent-light)'],'occasional':['var(--purple)','var(--purple-light)'],'quit':['var(--red-mid)','var(--red-light)']};
-      let editType=currentType;
-      const mkBtn=(t)=>{
-        const[c,bg]=typeColors[t];
-        const sel=t===editType;
-        return`<button class="type-sel-btn" data-t="${t}" style="flex:1;padding:6px 4px;border-radius:8px;border:1.5px solid ${sel?c:'var(--border2)'};background:${sel?bg:'transparent'};color:${sel?c:'var(--text3)'};font-family:inherit;font-size:12px;font-weight:${sel?700:400};cursor:pointer;">${TYPE_LABEL[t]}</button>`;
-      };
+      const currentBonus=!!habit.bonus;
+      const cardBottom=card.querySelector('.card-bottom');
+      cardBottom.style.display='none';
+      const form=document.createElement('div');form.className='rename-form';
+      form.style.cssText='flex-direction:column;gap:8px;margin-top:8px;';
       form.innerHTML=`
-        <input style="height:36px;border:1.5px solid var(--accent);border-radius:8px;padding:0 10px;font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--text);background:white;outline:none;width:100%;" class="rename-input" type="text" value="${escHtml(currentName)}" maxlength="40">
-        <div style="display:flex;gap:6px;" class="type-sel-row">${mkBtn('daily')}${mkBtn('occasional')}${mkBtn('quit')}</div>
+        <input class="rename-input" type="text" value="${escHtml(currentName)}" maxlength="40" style="width:100%;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;color:var(--text2);flex-shrink:0;">種別：</span>
+          <button class="type-toggle-btn" style="padding:4px 14px;border-radius:8px;border:1.5px solid ${currentBonus?'var(--purple)':'var(--accent)'};background:${currentBonus?'var(--purple-light)':'var(--accent-light)'};color:${currentBonus?'var(--purple)':'var(--accent)'};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;" data-bonus="${currentBonus}">${currentBonus?'ときどき':'毎日'}</button>
+          <span style="font-size:11px;color:var(--text3);" id="type-hint-${idx}">${currentBonus?'進捗に影響しない':'進捗に含める'}</span>
+        </div>
         <div style="display:flex;gap:6px;">
-          <button class="rename-ok" style="flex:1;height:34px;border-radius:8px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;">保存</button>
-          <button class="rename-cancel" style="height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-family:inherit;font-size:13px;cursor:pointer;">取消</button>
+          <button class="rename-ok" style="flex:1;">保存</button>
+          <button class="rename-cancel">取消</button>
         </div>`;
       card.appendChild(form);
       const input=form.querySelector('.rename-input');input.focus();input.select();
 
-      // 種別切り替え
-      form.querySelectorAll('.type-sel-btn').forEach(b=>{
-        b.addEventListener('click',e2=>{
-          e2.stopPropagation();editType=b.dataset.t;
-          form.querySelector('.type-sel-row').innerHTML=mkBtn('daily')+mkBtn('occasional')+mkBtn('quit');
-          form.querySelectorAll('.type-sel-btn').forEach(b2=>{
-            b2.addEventListener('click',e3=>{e3.stopPropagation();editType=b2.dataset.t;b2.closest('.type-sel-row').innerHTML=mkBtn('daily')+mkBtn('occasional')+mkBtn('quit');addTypeSelListeners(form);});
-          });
-        });
+      // 種別トグル
+      let editBonus=currentBonus;
+      const typeBtn=form.querySelector('.type-toggle-btn');
+      const typeHint=form.querySelector(`#type-hint-${idx}`);
+      typeBtn.addEventListener('click',e=>{
+        e.stopPropagation();
+        editBonus=!editBonus;
+        typeBtn.dataset.bonus=editBonus;
+        typeBtn.textContent=editBonus?'ときどき':'毎日';
+        typeBtn.style.borderColor=editBonus?'var(--purple)':'var(--accent)';
+        typeBtn.style.background=editBonus?'var(--purple-light)':'var(--accent-light)';
+        typeBtn.style.color=editBonus?'var(--purple)':'var(--accent)';
+        typeHint.textContent=editBonus?'進捗に影響しない':'進捗に含める';
       });
 
       const doSave=async()=>{
-        const newName=input.value.trim();if(!newName)return render();
-        const a=getCache();const u=a.users.find(u=>u.id===a.currentUserId);
-        u.habits[idx].name=newName;u.habits[idx].type=editType;
-        setCache(a);await saveData();showToast(`✅「${newName}」を保存しました`);render();
+        const newName=input.value.trim();
+        if(newName){
+          const a=getCache();const u=a.users.find(u=>u.id===a.currentUserId);
+          u.habits[idx].name=newName;
+          u.habits[idx].bonus=editBonus;
+          setCache(a);await saveData();
+          showToast(`✅「${newName}」を保存しました`);
+        }
+        render();
       };
-      form.querySelector('.rename-ok').addEventListener('click',e2=>{e2.stopPropagation();doSave();});
-      form.querySelector('.rename-cancel').addEventListener('click',e2=>{e2.stopPropagation();render();});
-      input.addEventListener('keydown',e2=>{if(e2.key==='Escape')render();});
-      input.addEventListener('click',e2=>e2.stopPropagation());
-      form.addEventListener('click',e2=>e2.stopPropagation());
+      form.querySelector('.rename-ok').addEventListener('click',e=>{e.stopPropagation();doSave();});
+      form.querySelector('.rename-cancel').addEventListener('click',e=>{e.stopPropagation();render();});
+      input.addEventListener('keydown',e=>{if(e.key==='Escape')render();});
+      input.addEventListener('click',e=>e.stopPropagation());
+      form.addEventListener('click',e=>e.stopPropagation());
     });
   });
 
@@ -1072,132 +859,128 @@ function render(){
       const habit=JSON.parse(JSON.stringify(u.habits[idx]));
       habit.deletedAt=TODAY;if(!u.archive)u.archive=[];
       u.archive.unshift(habit);u.habits.splice(idx,1);
-      setCache(a);render();await saveData();showToast(`「${habit.name}」をアーカイブしました`);
+      setCache(a);render();await saveData();
+      showToast(`「${habit.name}」をアーカイブしました`);
     });
   });
 }
 
-// ── DRAG & DROP ──
-function initDrag(handle,card,list){
-  let ghost=null,dragCard=null,offX=0,offY=0;
-  handle.addEventListener('pointerdown',e=>{
-    e.preventDefault();handle.setPointerCapture(e.pointerId);dragCard=card;
-    const rect=card.getBoundingClientRect();offX=e.clientX-rect.left;offY=e.clientY-rect.top;
-    ghost=card.cloneNode(true);
-    ghost.className='drag-ghost habit-card'+[...card.classList].filter(c=>c!=='habit-card').map(c=>' '+c).join('');
-    ghost.style.cssText=`width:${rect.width}px;left:${rect.left}px;top:${rect.top}px;`;
-    document.body.appendChild(ghost);card.classList.add('dragging');
+/* ── DRAG & DROP (Pointer Events) ── */
+function initDrag(handle, card, list) {
+  let ghost = null, dragCard = null, startX = 0, startY = 0, offX = 0, offY = 0;
+
+  handle.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    dragCard = card;
+    startX = e.clientX; startY = e.clientY;
+    const rect = card.getBoundingClientRect();
+    offX = e.clientX - rect.left;
+    offY = e.clientY - rect.top;
+
+    // ゴースト作成
+    ghost = card.cloneNode(true);
+    ghost.className = 'drag-ghost habit-card' + (card.classList.contains('bonus') ? ' bonus' : '') + (card.classList.contains('checked') ? ' checked' : '');
+    ghost.style.width = rect.width + 'px';
+    ghost.style.left = rect.left + 'px';
+    ghost.style.top = rect.top + 'px';
+    document.body.appendChild(ghost);
+    card.classList.add('dragging');
   });
-  handle.addEventListener('pointermove',e=>{
-    if(!ghost)return;e.preventDefault();
-    ghost.style.left=(e.clientX-offX)+'px';ghost.style.top=(e.clientY-offY)+'px';
-    ghost.style.display='none';const target=document.elementFromPoint(e.clientX,e.clientY);ghost.style.display='';
-    const tc=target&&target.closest('.habit-card');
-    list.querySelectorAll('.habit-card').forEach(c=>c.classList.remove('drag-over-top','drag-over-bottom'));
-    if(tc&&tc!==dragCard){const r=tc.getBoundingClientRect();tc.classList.add(e.clientY<r.top+r.height/2?'drag-over-top':'drag-over-bottom');}
+
+  handle.addEventListener('pointermove', e => {
+    if (!ghost) return;
+    e.preventDefault();
+    ghost.style.left = (e.clientX - offX) + 'px';
+    ghost.style.top = (e.clientY - offY) + 'px';
+
+    // ドロップ先を探す
+    ghost.style.display = 'none';
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    ghost.style.display = '';
+    const targetCard = target && target.closest('.habit-card');
+
+    list.querySelectorAll('.habit-card').forEach(c => {
+      c.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
+    if (targetCard && targetCard !== dragCard) {
+      const r = targetCard.getBoundingClientRect();
+      const mid = r.top + r.height / 2;
+      targetCard.classList.add(e.clientY < mid ? 'drag-over-top' : 'drag-over-bottom');
+    }
   });
-  handle.addEventListener('pointerup',async e=>{
-    if(!ghost)return;ghost.remove();ghost=null;card.classList.remove('dragging');
-    const tc=list.querySelector('.habit-card.drag-over-top,.habit-card.drag-over-bottom');
-    if(!tc||tc===dragCard){list.querySelectorAll('.habit-card').forEach(c=>c.classList.remove('drag-over-top','drag-over-bottom'));dragCard=null;return;}
-    const before=tc.classList.contains('drag-over-top');tc.classList.remove('drag-over-top','drag-over-bottom');
-    const from=parseInt(dragCard.dataset.habitIdx),to=parseInt(tc.dataset.habitIdx);
-    const a=getCache();const u=a.users.find(u=>u.id===a.currentUserId);
-    const[moved]=u.habits.splice(from,1);
-    let at=to>from?to-1:to;if(!before)at++;
-    at=Math.max(0,Math.min(at,u.habits.length));
-    u.habits.splice(at,0,moved);setCache(a);render();await saveData();dragCard=null;
+
+  handle.addEventListener('pointerup', async e => {
+    if (!ghost) return;
+    ghost.remove(); ghost = null;
+    card.classList.remove('dragging');
+
+    // ドロップ先カードを探す
+    const targetCard = list.querySelector('.habit-card.drag-over-top, .habit-card.drag-over-bottom');
+    if (!targetCard || targetCard === dragCard) {
+      list.querySelectorAll('.habit-card').forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom'));
+      dragCard = null; return;
+    }
+    const insertBefore = targetCard.classList.contains('drag-over-top');
+    targetCard.classList.remove('drag-over-top', 'drag-over-bottom');
+
+    // habits配列を並び替え
+    const fromIdx = parseInt(dragCard.dataset.habitIdx);
+    const toIdx   = parseInt(targetCard.dataset.habitIdx);
+    const a = getCache();
+    const u = a.users.find(u => u.id === a.currentUserId);
+    const [moved] = u.habits.splice(fromIdx, 1);
+    // toIdxはsplice後に1ずれる可能性あり
+    let insertAt = toIdx > fromIdx ? toIdx - 1 : toIdx;
+    if (!insertBefore) insertAt++;
+    insertAt = Math.max(0, Math.min(insertAt, u.habits.length));
+    u.habits.splice(insertAt, 0, moved);
+    setCache(a);
+    render();
+    await saveData();
+    dragCard = null;
   });
-  handle.addEventListener('pointercancel',()=>{
-    if(ghost){ghost.remove();ghost=null;}card.classList.remove('dragging');
-    list.querySelectorAll('.habit-card').forEach(c=>c.classList.remove('drag-over-top','drag-over-bottom'));dragCard=null;
+
+  handle.addEventListener('pointercancel', () => {
+    if (ghost) { ghost.remove(); ghost = null; }
+    card.classList.remove('dragging');
+    list.querySelectorAll('.habit-card').forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom'));
+    dragCard = null;
   });
 }
-
-// ── CALENDAR ──
 function openCalendar(idx){calHabitIdx=idx;calYear=new Date().getFullYear();calMonth=new Date().getMonth();renderCalendar();showScreen('screen-cal');}
 function renderCalendar(){
   const {habits}=getUserData();const habit=habits[calHabitIdx];if(!habit){showScreen('screen-list');return;}
-  const type=habit.type||'daily';const isQuit=type==='quit';const isOccasional=type==='occasional';
-
-  const typeLabels={'daily':'','occasional':' (ときどき)','quit':' (やめる！)'};
-  document.getElementById('cal-habit-name').textContent=habit.name+typeLabels[type];
-  document.getElementById('cal-edit-hint').textContent=isQuit?'タップで「我慢できた日」を記録（チェック＝我慢）':'日付をタップして過去のデータを編集できます';
-
-  if(isQuit){
-    const qs=getQuitStreak(habit);
-    const{ok,ng,elapsed}=getQuitMonthStats(habit);
-    document.getElementById('cal-streak').textContent=qs>0?qs:'—';
-    document.getElementById('cal-streak-lbl').textContent='💪 我慢継続日数';
-    document.getElementById('cal-total').textContent=ng;
-    document.getElementById('cal-total-lbl').textContent='😓 今月やった回数';
-    document.getElementById('cal-rate').textContent=elapsed?`${Math.round(ok/elapsed*100)}%`:'—';
-    document.getElementById('cal-rate-lbl').textContent='✅ 今月の我慢率';
-  }else if(isOccasional){
-    document.getElementById('cal-streak').textContent='—';
-    document.getElementById('cal-streak-lbl').textContent='ー';
-    document.getElementById('cal-total').textContent=getTotalDays(habit);
-    document.getElementById('cal-total-lbl').textContent='📅 累計実施回数';
-    const dim=new Date(calYear,calMonth+1,0).getDate();
-    const nl=new Date(),ty=nl.getFullYear(),tm=nl.getMonth(),td=nl.getDate();
-    const elapsed=calYear===ty&&calMonth===tm?td:(calYear>ty||(calYear===ty&&calMonth>tm)?0:dim);
-    let md=0;for(let d=1;d<=elapsed;d++)if((habit.logs||{})[dateKey(calYear,calMonth,d)])md++;
-    document.getElementById('cal-rate').textContent=elapsed?`${Math.round(md/elapsed*100)}%`:'—';
-    document.getElementById('cal-rate-lbl').textContent='📊 今月実施率';
-  }else{
-    document.getElementById('cal-streak').textContent=getStreak(habit);
-    document.getElementById('cal-streak-lbl').textContent='🔥 連続日数';
-    document.getElementById('cal-total').textContent=getTotalDays(habit);
-    document.getElementById('cal-total-lbl').textContent='📅 累計達成';
-    const dim=new Date(calYear,calMonth+1,0).getDate();
-    const nl=new Date(),ty=nl.getFullYear(),tm=nl.getMonth(),td=nl.getDate();
-    const elapsed=calYear===ty&&calMonth===tm?td:(calYear>ty||(calYear===ty&&calMonth>tm)?0:dim);
-    let md=0;for(let d=1;d<=elapsed;d++)if((habit.logs||{})[dateKey(calYear,calMonth,d)])md++;
-    document.getElementById('cal-rate').textContent=elapsed?`${Math.round(md/elapsed*100)}%`:'—';
-    document.getElementById('cal-rate-lbl').textContent='📊 今月達成率';
-  }
-
-  document.getElementById('month-label').textContent=`${calYear}年${calMonth+1}月`;
-  const nl=new Date();document.getElementById('next-month').disabled=calYear===nl.getFullYear()&&calMonth===nl.getMonth();
-
-  // カレンダー凡例
-  const legend=document.getElementById('cal-legend');
-  if(isQuit){
-    legend.innerHTML=`<div class="legend-item"><div class="legend-dot quit-ok-dot"></div>我慢できた日</div><div class="legend-item"><div class="legend-dot quit-ng-dot" style="background:var(--red-mid);"></div>やってしまった日</div><div class="legend-item"><div class="legend-dot today-l"></div>今日</div>`;
-  }else if(isOccasional){
-    legend.innerHTML=`<div class="legend-item"><div class="legend-dot occasional-done"></div>実施した日</div><div class="legend-item"><div class="legend-dot today-l"></div>今日</div>`;
-  }else{
-    legend.innerHTML=`<div class="legend-item"><div class="legend-dot done"></div>達成済み</div><div class="legend-item"><div class="legend-dot today-l"></div>今日</div>`;
-  }
-
-  const grid=document.getElementById('day-grid');grid.innerHTML='';
+  const isBonus=!!habit.bonus;
+  document.getElementById('cal-habit-name').textContent=habit.name+(isBonus?' (ときどき)':'');
+  document.getElementById('cal-edit-hint').textContent='日付をタップして過去のデータを編集できます';
+  document.getElementById('cal-streak').textContent=isBonus?'—':getStreak(habit);
+  document.getElementById('cal-streak-lbl').textContent=isBonus?'ー':'🔥 連続日数';
+  document.getElementById('cal-total').textContent=getTotalDays(habit);
+  document.getElementById('cal-legend-bonus').style.display=isBonus?'flex':'none';
   const dim=new Date(calYear,calMonth+1,0).getDate();
+  const nl=new Date(),ty=nl.getFullYear(),tm=nl.getMonth(),td=nl.getDate();
+  const isCur=calYear===ty&&calMonth===tm,isFut=calYear>ty||(calYear===ty&&calMonth>tm);
+  const elapsed=isCur?td:(isFut?0:dim);
+  let md=0;for(let d=1;d<=elapsed;d++)if((habit.logs||{})[dateKey(calYear,calMonth,d)])md++;
+  document.getElementById('cal-rate').textContent=elapsed?`${Math.round(md/elapsed*100)}%`:'—';
+  document.getElementById('month-label').textContent=`${calYear}年${calMonth+1}月`;
+  document.getElementById('next-month').disabled=calYear===ty&&calMonth===tm;
+  const grid=document.getElementById('day-grid');grid.innerHTML='';
   const fdow=new Date(calYear,calMonth,1).getDay();
   for(let i=0;i<fdow;i++){const c=document.createElement('div');c.className='day-cell empty';grid.appendChild(c);}
   for(let d=1;d<=dim;d++){
-    const k=dateKey(calYear,calMonth,d),isDone=!!(habit.logs||{})[k];
-    const isToday=k===TODAY,isFuture=k>TODAY;
+    const k=dateKey(calYear,calMonth,d),isDone=!!(habit.logs||{})[k],isToday=k===TODAY,isFuture=k>TODAY;
     const cell=document.createElement('div');
-    let cls='day-cell';
-    if(isQuit){
-      if(isDone)cls+=' done quit-ok';
-      else if(!isFuture&&!isToday)cls+=' quit-ng';
-    }else if(isOccasional){
-      if(isDone)cls+=' done occasional-done';
-    }else{
-      if(isDone)cls+=' done';
-    }
-    if(isToday)cls+=' today';
-    if(isFuture)cls+=' future';
-    cell.className=cls;cell.textContent=d;
+    cell.className='day-cell'+(isDone?' done'+(isBonus?' bonus-done':''):'')+(isToday?' today':'')+(isFuture?' future':'');
+    cell.textContent=d;
     if(!isFuture)cell.addEventListener('click',async()=>{
       const a=getCache();const u=a.users.find(u=>u.id===a.currentUserId);
       const h=u.habits[calHabitIdx];if(!h.logs)h.logs={};
       const was=!!h.logs[k];was?delete h.logs[k]:(h.logs[k]=true);
-      setCache(a);
-      const lbl=isToday?'今日':`${calMonth+1}月${d}日`;
-      const msg=isQuit?(was?`${lbl} — 記録を消しました`:`${lbl} — 我慢できた！ ✓`):(was?`${lbl} — 取り消しました`:`${lbl} — 記録しました ✓`);
-      showToast(msg);renderCalendar();await saveData();
+      setCache(a);const lbl=isToday?'今日':`${calMonth+1}月${d}日`;
+      showToast(was?`${lbl} — 記録を取り消しました`:`${lbl} — 記録しました ✓`);
+      renderCalendar();await saveData();
     });
     grid.appendChild(cell);
   }
@@ -1206,18 +989,18 @@ document.getElementById('prev-month').addEventListener('click',()=>{calMonth--;i
 document.getElementById('next-month').addEventListener('click',()=>{calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendar();});
 document.getElementById('back-btn').addEventListener('click',()=>{showScreen('screen-list');render();});
 
-// ── ADD HABIT ──
+/* ── ADD HABIT ── */
 async function addHabit(){
   const input=document.getElementById('add-input'),name=input.value.trim();if(!name)return;
   const a=getCache();const u=a.users.find(u=>u.id===a.currentUserId);
-  u.habits.push({name,logs:{},createdAt:TODAY,type:addType});setCache(a);input.value='';render();
+  u.habits.push({name,logs:{},createdAt:TODAY,bonus:addingBonus});setCache(a);input.value='';render();
   await saveData();
   setTimeout(()=>document.getElementById('habit-list').lastElementChild?.scrollIntoView({behavior:'smooth',block:'nearest'}),50);
 }
 document.getElementById('add-btn').addEventListener('click',addHabit);
 document.getElementById('add-input').addEventListener('keydown',e=>{if(e.key==='Enter')addHabit();});
 
-// ── ARCHIVE ──
+/* ── ARCHIVE ── */
 function renderArchive(){
   const {archive}=getUserData();const cu=getCurrentUser();
   document.getElementById('archive-title').textContent=`${cu.name}の削除した習慣`;
@@ -1225,9 +1008,9 @@ function renderArchive(){
   if(!archive.length){list.innerHTML=`<div class="archive-empty">削除した習慣はありません</div>`;return;}
   list.innerHTML='';
   archive.forEach((habit,idx)=>{
-    const tl=TYPE_LABEL[habit.type||'daily'];
     const card=document.createElement('div');card.className='archive-card';
-    card.innerHTML=`<div class="archive-info"><div class="archive-name">${escHtml(habit.name)} <span style="font-size:11px;color:var(--text3);">[${tl}]</span></div><div class="archive-meta">累計${getTotalDays(habit)}回 · 削除日: ${habit.deletedAt||'不明'}</div></div><button class="restore-btn" data-idx="${idx}">復元</button>`;
+    const typeLabel=habit.bonus?'ときどき':'毎日';
+    card.innerHTML=`<div class="archive-info"><div class="archive-name">${escHtml(habit.name)} <span style="font-size:11px;color:var(--text3);">[${typeLabel}]</span></div><div class="archive-meta">累計${getTotalDays(habit)}日達成 · 削除日: ${habit.deletedAt||'不明'}</div></div><button class="restore-btn" data-idx="${idx}">復元</button>`;
     list.appendChild(card);
   });
   list.querySelectorAll('.restore-btn').forEach(btn=>btn.addEventListener('click',async()=>{
@@ -1239,7 +1022,7 @@ function renderArchive(){
 }
 document.getElementById('archive-back-btn').addEventListener('click',()=>{showScreen('screen-list');render();});
 
-// ── SYNC SETUP ──
+/* ── SYNC SETUP ── */
 document.getElementById('setup-back-btn').addEventListener('click',()=>showScreen('screen-list'));
 document.getElementById('setup-save-btn').addEventListener('click',async()=>{
   const url=document.getElementById('gas-url-input').value.trim();
@@ -1247,29 +1030,29 @@ document.getElementById('setup-save-btn').addEventListener('click',async()=>{
   const status=document.getElementById('setup-status');
   status.textContent='接続確認中…';setSyncDot('syncing');
   try{
-    const data=await remoteLoad(url);setGasUrl(url);
+    const data=await remoteLoad(url);
+    setGasUrl(url);
     if(data&&data.users){
       const local=getCache();const merged={...data};
       local.users.forEach(lu=>{if(!merged.users.find(ru=>ru.id===lu.id))merged.users.push(lu);});
       merged.currentUserId=local.currentUserId;
       if(!merged.users.find(u=>u.id===merged.currentUserId))merged.currentUserId=merged.users[0].id;
-      (merged.users||[]).forEach(u=>{u.habits=(u.habits||[]).map(migrateHabit);u.archive=(u.archive||[]).map(migrateHabit);});
       setCache(merged);
     }else{await remoteSave(getCache());}
-    setSyncDot('ok');status.textContent='✅ 接続成功！';renderUserTabs();render();
-    setTimeout(()=>showScreen('screen-list'),1200);
-  }catch{setSyncDot('err');status.textContent='❌ 接続できませんでした';}
+    setSyncDot('ok');status.textContent='✅ 接続成功！同期を開始しました';
+    renderUserTabs();render();setTimeout(()=>{showScreen('screen-list');},1200);
+  }catch(e){setSyncDot('err');status.textContent='❌ 接続できませんでした。URLを確認してください';}
 });
 document.getElementById('setup-clear-btn').addEventListener('click',()=>{
-  if(!confirm('このグループの接続を解除しますか？'))return;
+  if(!confirm('家族共有を解除してローカル保存に戻しますか？'))return;
   clearGasUrl();setSyncDot('off');showToast('接続を解除しました');showScreen('screen-list');
 });
 
-// ── MENU ──
+/* ── MENU ── */
 const overlay=document.getElementById('sheet-overlay');
 document.getElementById('menu-btn').addEventListener('click',()=>{
-  const cu=getCurrentUser();const cg=getCurrentGroup();
-  document.getElementById('sheet-user-title').textContent=`${cg?cg.name+' / ':''}${cu.name}`;
+  const cu=getCurrentUser();
+  document.getElementById('sheet-user-title').textContent=`${cu.name} のメニュー`;
   document.getElementById('rename-user-label').textContent=`「${cu.name}」の名前を変更`;
   const {archive}=getUserData();
   const badge=document.getElementById('archive-badge');
@@ -1278,11 +1061,6 @@ document.getElementById('menu-btn').addEventListener('click',()=>{
   const all=getCache();
   document.getElementById('delete-user-btn').style.display=all.users.length>1?'flex':'none';
   document.getElementById('parent-mode-toggle').checked=isParentMode();
-  // setup画面にグループ名を表示
-  if(document.getElementById('setup-current-group'))
-    document.getElementById('setup-current-group').textContent=cg?`現在のグループ：${cg.name}`:'';
-  if(document.getElementById('gas-url-input'))
-    document.getElementById('gas-url-input').value=getGasUrl();
   overlay.classList.add('open');
 });
 document.getElementById('sheet-close').addEventListener('click',()=>overlay.classList.remove('open'));
@@ -1290,16 +1068,17 @@ overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.rem
 
 document.getElementById('parent-mode-toggle').addEventListener('change',function(){
   setParentMode(this.checked);
-  if(!this.checked){const p=getPinnedUserId();if(p){const a=getCache();a.currentUserId=p;setCache(a);}}
+  if(!this.checked){const pinned=getPinnedUserId();if(pinned){const a=getCache();a.currentUserId=pinned;setCache(a);}}
   renderUserTabs();render();
+});
+
+document.getElementById('switch-user-btn').addEventListener('click',()=>{
+  overlay.classList.remove('open');setPinnedUserId('');renderWelcomeScreen();showScreen('screen-welcome');
 });
 document.getElementById('sync-setup-btn').addEventListener('click',()=>{
   overlay.classList.remove('open');
-  const cg=getCurrentGroup();
-  document.getElementById('setup-current-group').textContent=cg?`現在のグループ：${cg.name}`:'';
   document.getElementById('gas-url-input').value=getGasUrl();
-  document.getElementById('setup-status').textContent='';
-  showScreen('screen-setup');
+  document.getElementById('setup-status').textContent='';showScreen('screen-setup');
 });
 document.getElementById('rename-user-btn').addEventListener('click',async()=>{
   overlay.classList.remove('open');const cu=getCurrentUser();
@@ -1316,10 +1095,10 @@ document.getElementById('delete-user-btn').addEventListener('click',async()=>{
 });
 document.getElementById('archive-btn').addEventListener('click',()=>{overlay.classList.remove('open');renderArchive();showScreen('screen-archive');});
 document.getElementById('export-btn').addEventListener('click',()=>{
-  overlay.classList.remove('open');const cu=getCurrentUser();const cg=getCurrentGroup();
+  overlay.classList.remove('open');const cu=getCurrentUser();
   const blob=new Blob([JSON.stringify({habits:cu.habits,archive:cu.archive},null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');const n=new Date();
-  a.href=url;a.download=`tsuzukeru_${cg?cg.name+'_':''}${cu.name}_${n.getFullYear()}${String(n.getMonth()+1).padStart(2,'0')}${String(n.getDate()).padStart(2,'0')}.json`;
+  a.href=url;a.download=`tsuzukeru_${cu.name}_${n.getFullYear()}${String(n.getMonth()+1).padStart(2,'0')}${String(n.getDate()).padStart(2,'0')}.json`;
   a.click();URL.revokeObjectURL(url);showToast('✅ エクスポートしました');
 });
 document.getElementById('import-btn').addEventListener('click',()=>{overlay.classList.remove('open');document.getElementById('import-file').click();});
@@ -1333,7 +1112,7 @@ document.getElementById('import-file').addEventListener('change',async e=>{
       const a=getCache();const u=a.users.find(u=>u.id===a.currentUserId);
       let merged=0,added=0;
       imp.habits.forEach(ih=>{
-        ih=migrateHabit(ih);
+        if(ih.bonus===undefined)ih.bonus=false;
         const ex=u.habits.find(h=>h.name===ih.name);
         if(ex){Object.assign(ex.logs,ih.logs||{});merged++;}else{u.habits.push(ih);added++;}
       });
@@ -1344,36 +1123,20 @@ document.getElementById('import-file').addEventListener('change',async e=>{
   reader.readAsText(file);
 });
 
-// ── 定期同期（30秒）──
+/* ── 定期同期（30秒）── */
 setInterval(()=>{if(getGasUrl())syncFromRemote(true);},30000);
 
-// ── INIT ──
-(function(){
-  // グループがなければデフォルトグループを作成（既存ユーザー向け）
-  let groups=loadGroups();
-  if(!groups.length){
-    const id='g_default';
-    groups=[{id,name:'わたしの習慣',gasUrl:''}];
-    saveGroups(groups);
-    setCurrentGroupId(id);
-  }
-  // currentGroupIdがなければ最初のグループに
-  if(!getCurrentGroupId()||!groups.find(g=>g.id===getCurrentGroupId())){
-    setCurrentGroupId(groups[0].id);
-  }
-  resetCache();
-  if(getGasUrl()){setSyncDot('syncing');}else{setSyncDot('off');}
-
-  const pinned=getPinnedUserId();
-  const all=getCache();
-  if(pinned&&all.users.find(u=>u.id===pinned)){
-    all.currentUserId=pinned;setCache(all);
-    if(getGasUrl())syncFromRemote();
-    showScreen('screen-list');renderGroupTabs();renderUserTabs();render();
-  }else{
-    renderWelcomeStep1();showScreen('screen-welcome');
-  }
-})();
+/* ── INIT ── */
+initLocal();
+if(getGasUrl()){setSyncDot('syncing');syncFromRemote();}else{setSyncDot('off');}
+const pinned=getPinnedUserId();
+const allData=getCache();
+if(pinned&&allData.users.find(u=>u.id===pinned)){
+  allData.currentUserId=pinned;setCache(allData);
+  showScreen('screen-list');renderUserTabs();render();
+}else{
+  renderWelcomeScreen();showScreen('screen-welcome');
+}
 </script>
 </body>
 </html>
