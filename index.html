@@ -582,13 +582,15 @@ function resetCache(){_cache=null;}
 function getCurrentUser(){const all=getCache();return all.users.find(u=>u.id===all.currentUserId)||all.users[0];}
 function getUserData(){const u=getCurrentUser();return{habits:u.habits||[],archive:u.archive||[]};}
 
+let _isSyncing=false;
 async function saveData(){
-  const all=getCache();saveLocal(all);
+  const all=getCache();
+  saveLocal(all); // ローカルは必ず即時保存
   if(getGasUrl()){
-    // グループ名をGASデータに含める（他ユーザーに反映させるため）
     const cg=getCurrentGroup();
     const dataToSave=cg?{...all,groupName:cg.name}:all;
-    const ok=await remoteSave(dataToSave);if(!ok)setSyncDot('err');
+    // 非同期でリモート保存（ローカルへの保存は既に完了済み）
+    remoteSave(dataToSave).then(ok=>{if(!ok)setSyncDot('err');}).catch(()=>setSyncDot('err'));
   }
 }
 
@@ -596,16 +598,37 @@ async function saveData(){
 async function syncFromRemote(silent=false){
   if(!getGasUrl()){setSyncDot('off');return;}
   if(!silent)setSyncDot('syncing');
-  const remote=await remoteLoad();if(!remote)return;
+  const remote=await remoteLoad();if(!remote){if(!silent)setSyncDot('err');return;}
   const local=getCache();
-  const merged={...remote};
-  local.users.forEach(lu=>{if(!merged.users.find(ru=>ru.id===lu.id))merged.users.push(lu);});
-  merged.currentUserId=local.currentUserId;
-  if(!merged.users.find(u=>u.id===merged.currentUserId))merged.currentUserId=merged.users[0].id;
-  (merged.users||[]).forEach(u=>{
-    u.habits=(u.habits||[]).map(migrateHabit);
-    u.archive=(u.archive||[]).map(migrateHabit);
+
+  // ローカルを正として、リモートにしかいないユーザーだけ追加する
+  // （ローカルの最新チェック・追加データを絶対に失わない）
+  const merged={...local};
+  (remote.users||[]).forEach(ru=>{
+    const lu=merged.users.find(u=>u.id===ru.id);
+    if(!lu){
+      // リモートにしかいないユーザーはそのまま追加
+      ru.habits=(ru.habits||[]).map(migrateHabit);
+      ru.archive=(ru.archive||[]).map(migrateHabit);
+      merged.users.push(ru);
+    }else{
+      // 同じユーザーはログをマージ（どちらかにあれば残す、削除はローカル優先）
+      (ru.habits||[]).forEach(rh=>{
+        const lh=lu.habits.find(h=>h.name===rh.name&&h.type===rh.type);
+        if(lh){
+          // リモートのログをローカルにマージ（ローカルにないキーだけ追加）
+          Object.keys(rh.logs||{}).forEach(k=>{if(!(k in (lh.logs||{})))lh.logs[k]=rh.logs[k];});
+        }
+        // ローカルにない習慣は追加しない（ローカルで削除済みかもしれないため）
+      });
+    }
   });
+  // deletedUsersはローカルとリモートをマージ（両方のを保持）
+  const remoteDeleted=remote.deletedUsers||[];
+  const localDeleted=merged.deletedUsers||[];
+  remoteDeleted.forEach(ru=>{if(!localDeleted.find(u=>u.id===ru.id))localDeleted.push(ru);});
+  merged.deletedUsers=localDeleted;
+
   // グループ名をリモートから反映
   if(remote.groupName){
     const groups=loadGroups();const id=getCurrentGroupId();
@@ -613,7 +636,7 @@ async function syncFromRemote(silent=false){
     if(g&&remote.groupName!==g.name){g.name=remote.groupName;saveGroups(groups);}
   }
   setCache(merged);
-  // ピンが有効かチェック：無効なら現在画面がlist画面のときのみウェルカムへ
+  // ピンが有効かチェック
   const pinned=getPinnedUserId();
   if(pinned&&merged.users.find(u=>u.id===pinned)){
     merged.currentUserId=pinned;setCache(merged);
@@ -1438,41 +1461,48 @@ document.getElementById('rename-user-btn').addEventListener('click',()=>{
 });
 document.getElementById('delete-user-btn').addEventListener('click',()=>{
   overlay.classList.remove('open');
+  // IDとnameをこの時点でスナップショット（後でキャッシュが変わっても安全）
   const cu=getCurrentUser();
+  const targetId=cu.id;
+  const targetName=cu.name;
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:250;display:flex;align-items:flex-end;justify-content:center;';
   ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp .24s cubic-bezier(.22,1,.36,1);">
-    <div style="font-size:15px;font-weight:700;margin-bottom:6px;">「${escHtml(cu.name)}」を削除</div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:6px;">「${escHtml(targetName)}」を削除</div>
     <div style="font-size:13px;color:var(--text3);margin-bottom:20px;">一時削除はメニューの「削除したユーザー」から復元できます。</div>
     <button id="duo-soft" style="width:100%;height:44px;border-radius:12px;border:none;background:var(--amber);color:white;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px;">一時削除（復元可能）</button>
     <button id="duo-hard" style="width:100%;height:44px;border-radius:12px;border:none;background:#E24B4A;color:white;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">完全削除（取り消し不可）</button>
     <button id="duc" style="width:100%;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;">キャンセル</button>
   </div>`;
   document.body.appendChild(ov);
-  // 一時削除：削除済みユーザーリストへ移動
+  // 一時削除：スナップショットしたtargetIdで特定
   ov.querySelector('#duo-soft').addEventListener('click',async()=>{
     const a=getCache();
-    const idx=a.users.findIndex(u=>u.id===a.currentUserId);
-    if(idx===-1){ov.remove();return;}
+    const idx=a.users.findIndex(u=>u.id===targetId);
+    if(idx===-1){showToast('❌ ユーザーが見つかりません');ov.remove();return;}
     const deleted=a.users.splice(idx,1)[0];
     deleted.deletedAt=TODAY;
     if(!a.deletedUsers)a.deletedUsers=[];
     a.deletedUsers.push(deleted);
     if(!a.users.length){a.users=[{id:'u1',name:'わたし',habits:[],archive:[]}];}
     a.currentUserId=a.users[0].id;
-    setPinnedUserId(''); // ピンをクリアして次回ウェルカムへ
+    setPinnedUserId('');
     setCache(a);await saveData();ov.remove();
     renderGroupTabs();renderUserTabs();render();
-    showToast(`「${cu.name}」を一時削除しました（復元可能）`);
+    showToast(`「${targetName}」を一時削除しました（復元可能）`);
   });
-  // 完全削除
+  // 完全削除：スナップショットしたtargetIdで特定
   ov.querySelector('#duo-hard').addEventListener('click',async()=>{
-    const a=getCache();a.users=a.users.filter(u=>u.id!==a.currentUserId);
+    const a=getCache();
+    const idx=a.users.findIndex(u=>u.id===targetId);
+    if(idx===-1){showToast('❌ ユーザーが見つかりません');ov.remove();return;}
+    a.users.splice(idx,1);
     if(!a.users.length){a.users=[{id:'u1',name:'わたし',habits:[],archive:[]}];}
     a.currentUserId=a.users[0].id;
     setPinnedUserId('');
     setCache(a);await saveData();ov.remove();
-    renderGroupTabs();renderUserTabs();render();showToast(`「${cu.name}」を完全削除しました`);
+    renderGroupTabs();renderUserTabs();render();
+    showToast(`「${targetName}」を完全削除しました`);
   });
   ov.querySelector('#duc').addEventListener('click',()=>ov.remove());
   ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
@@ -1623,7 +1653,36 @@ document.getElementById('deleted-groups-btn').addEventListener('click',()=>{
 });
 
 // ── 定期同期（30秒）──
-setInterval(()=>{if(getGasUrl())syncFromRemote(true);},30000);
+// 自動同期：UIを強制rerenderしない（ユーザー操作を妨げない）
+// 代わりに30秒ごとにリモートのデータをバックグラウンドでローカルにマージするだけ
+let _autoSyncTimer=null;
+function scheduleAutoSync(){
+  if(_autoSyncTimer)clearInterval(_autoSyncTimer);
+  _autoSyncTimer=setInterval(async()=>{
+    if(!getGasUrl())return;
+    // silent=true：画面rerenderなし、syncDotも変えない
+    const remote=await remoteLoad();if(!remote)return;
+    const local=getCache();
+    // 他ユーザーのデータだけ静かにマージ
+    let changed=false;
+    (remote.users||[]).forEach(ru=>{
+      const lu=local.users.find(u=>u.id===ru.id);
+      if(!lu){ru.habits=(ru.habits||[]).map(migrateHabit);ru.archive=(ru.archive||[]).map(migrateHabit);local.users.push(ru);changed=true;}
+      else{
+        Object.keys(ru.logs||{}).forEach(()=>{});
+        (ru.habits||[]).forEach(rh=>{
+          const lh=lu.habits.find(h=>h.name===rh.name&&h.type===rh.type);
+          if(lh){Object.keys(rh.logs||{}).forEach(k=>{if(!(k in (lh.logs||{}))){lh.logs[k]=rh.logs[k];changed=true;}});}
+        });
+      }
+    });
+    const remoteDeleted=remote.deletedUsers||[];
+    const localDeleted=local.deletedUsers||[];
+    remoteDeleted.forEach(ru=>{if(!localDeleted.find(u=>u.id===ru.id)){localDeleted.push(ru);changed=true;}});
+    if(changed){local.deletedUsers=localDeleted;saveLocal(local);}
+  },30000);
+}
+scheduleAutoSync();
 
 // ── INIT ──
 (function(){
