@@ -610,7 +610,15 @@ async function syncFromRemote(silent=false){
   // ローカルを正として、リモートにしかいないユーザーだけ追加する
   // （ローカルの最新チェック・追加データを絶対に失わない）
   const merged={...local};
+  // deletedUsersはローカルとリモートをマージ（両方のを保持）
+  const remoteDeleted=remote.deletedUsers||[];
+  const localDeleted=(merged.deletedUsers||[]).slice();
+  remoteDeleted.forEach(ru=>{if(!localDeleted.find(u=>u.id===ru.id))localDeleted.push(ru);});
+  merged.deletedUsers=localDeleted;
+
   (remote.users||[]).forEach(ru=>{
+    // ローカルで削除済みのユーザーはスキップ（復活させない）
+    if(merged.deletedUsers.find(u=>u.id===ru.id))return;
     const lu=merged.users.find(u=>u.id===ru.id);
     if(!lu){
       // リモートにしかいないユーザーはそのまま追加
@@ -629,17 +637,13 @@ async function syncFromRemote(silent=false){
       });
     }
   });
-  // deletedUsersはローカルとリモートをマージ（両方のを保持）
-  const remoteDeleted=remote.deletedUsers||[];
-  const localDeleted=merged.deletedUsers||[];
-  remoteDeleted.forEach(ru=>{if(!localDeleted.find(u=>u.id===ru.id))localDeleted.push(ru);});
-  merged.deletedUsers=localDeleted;
 
-  // グループ名をリモートから反映
+  // グループ名をリモートから反映（現在のグループにGAS連携がある場合のみ）
   if(remote.groupName){
     const groups=loadGroups();const id=getCurrentGroupId();
     const g=groups.find(g=>g.id===id);
-    if(g&&remote.groupName!==g.name){g.name=remote.groupName;saveGroups(groups);}
+    // GAS連携が設定されているグループのみ名前を更新する
+    if(g&&g.gasUrl&&remote.groupName!==g.name){g.name=remote.groupName;saveGroups(groups);}
   }
   setCache(merged);
   // ピンが有効かチェック
@@ -798,9 +802,18 @@ async function renderWelcomeStep2(group){
       }
       const local=getCache();
       const merged={...remote};
-      local.users.forEach(lu=>{if(!merged.users.find(ru=>ru.id===lu.id))merged.users.push(lu);});
+      // deletedUsersをマージ（ローカル＋リモート両方を保持）
+      const mergedDeleted=[...(local.deletedUsers||[])];
+      (remote.deletedUsers||[]).forEach(ru=>{if(!mergedDeleted.find(u=>u.id===ru.id))mergedDeleted.push(ru);});
+      merged.deletedUsers=mergedDeleted;
+      // リモートから来たusersのうち削除済みのものを除外
+      merged.users=(merged.users||[]).filter(ru=>!mergedDeleted.find(u=>u.id===ru.id));
+      // ローカルにしかいないユーザーを追加（削除済みは除く）
+      local.users.forEach(lu=>{
+        if(!merged.users.find(ru=>ru.id===lu.id)&&!mergedDeleted.find(u=>u.id===lu.id))merged.users.push(lu);
+      });
       merged.currentUserId=local.currentUserId;
-      if(!merged.users.find(u=>u.id===merged.currentUserId))merged.currentUserId=merged.users[0].id;
+      if(!merged.users.find(u=>u.id===merged.currentUserId))merged.currentUserId=merged.users[0]?.id||'';
       (merged.users||[]).forEach(u=>{u.habits=(u.habits||[]).map(migrateHabit);u.archive=(u.archive||[]).map(migrateHabit);});
       setCache(merged);setSyncDot('ok');
     }else{setSyncDot('err');}
@@ -1359,9 +1372,18 @@ document.getElementById('setup-save-btn').addEventListener('click',async()=>{
         const g=groups.find(g=>g.id===id);
         if(g&&data.groupName!==g.name){g.name=data.groupName;saveGroups(groups);}
       }
-      local.users.forEach(lu=>{if(!merged.users.find(ru=>ru.id===lu.id))merged.users.push(lu);});
+      // deletedUsersをマージ（ローカル＋リモート両方を保持）
+      const mergedDeleted=[...(local.deletedUsers||[])];
+      (data.deletedUsers||[]).forEach(ru=>{if(!mergedDeleted.find(u=>u.id===ru.id))mergedDeleted.push(ru);});
+      merged.deletedUsers=mergedDeleted;
+      // リモートから来たusersのうち削除済みのものを除外
+      merged.users=(merged.users||[]).filter(ru=>!mergedDeleted.find(u=>u.id===ru.id));
+      // ローカルにしかいないユーザーを追加（削除済みは除く）
+      local.users.forEach(lu=>{
+        if(!merged.users.find(ru=>ru.id===lu.id)&&!mergedDeleted.find(u=>u.id===lu.id))merged.users.push(lu);
+      });
       merged.currentUserId=local.currentUserId;
-      if(!merged.users.find(u=>u.id===merged.currentUserId))merged.currentUserId=merged.users[0].id;
+      if(!merged.users.find(u=>u.id===merged.currentUserId))merged.currentUserId=merged.users[0]?.id||'';
       (merged.users||[]).forEach(u=>{u.habits=(u.habits||[]).map(migrateHabit);u.archive=(u.archive||[]).map(migrateHabit);});
       setCache(merged);
     }else{await remoteSave(getCache());}
@@ -1671,7 +1693,13 @@ function scheduleAutoSync(){
     const local=getCache();
     // 他ユーザーのデータだけ静かにマージ
     let changed=false;
+    // 削除済みユーザーを先にマージして復活チェックに使う
+    const remoteDeleted=remote.deletedUsers||[];
+    const localDeleted=local.deletedUsers||[];
+    remoteDeleted.forEach(ru=>{if(!localDeleted.find(u=>u.id===ru.id)){localDeleted.push(ru);changed=true;}});
     (remote.users||[]).forEach(ru=>{
+      // ローカルで削除済みのユーザーはスキップ（復活させない）
+      if(localDeleted.find(u=>u.id===ru.id))return;
       const lu=local.users.find(u=>u.id===ru.id);
       if(!lu){ru.habits=(ru.habits||[]).map(migrateHabit);ru.archive=(ru.archive||[]).map(migrateHabit);local.users.push(ru);changed=true;}
       else{
@@ -1682,9 +1710,6 @@ function scheduleAutoSync(){
         });
       }
     });
-    const remoteDeleted=remote.deletedUsers||[];
-    const localDeleted=local.deletedUsers||[];
-    remoteDeleted.forEach(ru=>{if(!localDeleted.find(u=>u.id===ru.id)){localDeleted.push(ru);changed=true;}});
     if(changed){local.deletedUsers=localDeleted;saveLocal(local);}
   },30000);
 }
