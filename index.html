@@ -137,7 +137,14 @@
   .habit-card.drag-over-bottom{border-bottom:2.5px solid var(--accent);}
   .drag-ghost{position:fixed;pointer-events:none;z-index:500;opacity:.92;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.18);transform:scale(1.03);}
 
-  /* ADD BAR */
+  /* GOAL COMMENTS */
+  .goal-comment-area{padding:4px 0 0;}
+  .goal-comment-item{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:8px;background:var(--blue-light);border:1px solid rgba(24,95,165,.15);margin-bottom:3px;}
+  .goal-comment-text{flex:1;font-size:12px;color:var(--blue);line-height:1.4;word-break:break-all;}
+  .goal-comment-btn{width:20px;height:20px;border-radius:5px;border:none;background:transparent;color:var(--blue);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.6;-webkit-tap-highlight-color:transparent;}
+  .goal-comment-btn:active{opacity:1;background:rgba(24,95,165,.15);}
+
+
   .add-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surface);border-top:1px solid var(--border);padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:50;}
   .add-form{display:flex;gap:6px;align-items:center;}
   .add-input{flex:1;height:42px;border:1.5px solid var(--border2);border-radius:12px;padding:0 12px;font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--text);background:var(--bg);outline:none;transition:border-color .2s;}
@@ -146,6 +153,7 @@
   .add-type-btn{height:42px;padding:0 10px;border-radius:12px;border:1.5px solid var(--border2);background:var(--surface2);color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:border-color .15s,background .15s,color .15s;min-width:54px;text-align:center;}
   .add-type-btn.mode-occasional{border-color:var(--purple);background:var(--purple-light);color:var(--purple);}
   .add-type-btn.mode-quit{border-color:var(--red-mid);background:var(--red-light);color:var(--red);}
+  .add-type-btn.mode-goal{border-color:var(--blue);background:var(--blue-light);color:var(--blue);}
   .add-btn{width:42px;height:42px;border-radius:12px;border:none;background:var(--accent);color:white;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
   .add-btn:active{transform:scale(.95);background:var(--accent-dark);}
 
@@ -397,6 +405,7 @@
             <div id="perfect-streak" style="font-size:11px;color:var(--text3);margin-top:1px;"></div>
           </div>
         </div>
+        <div id="goal-comment-area" class="goal-comment-area" style="display:none;border-top:1px solid var(--border);margin-top:8px;padding-top:6px;"></div>
       </div>
     </div>
   </div>
@@ -1086,15 +1095,15 @@ function showAddGroupForm(){
 }
 
 // ── ADD TYPE TOGGLE ──
-const TYPE_CYCLE=['daily','occasional','quit'];
-const TYPE_LABEL={'daily':'毎日','occasional':'ときどき','quit':'やめる！'};
+const TYPE_CYCLE=['daily','occasional','quit','goal'];
+const TYPE_LABEL={'daily':'毎日','occasional':'ときどき','quit':'やめる！','goal':'目標'};
 document.getElementById('add-type-btn').addEventListener('click',()=>{
   const cur=TYPE_CYCLE.indexOf(addType);
   addType=TYPE_CYCLE[(cur+1)%TYPE_CYCLE.length];
   const btn=document.getElementById('add-type-btn');
   btn.textContent=TYPE_LABEL[addType];
-  btn.className='add-type-btn'+(addType==='occasional'?' mode-occasional':addType==='quit'?' mode-quit':'');
-  const placeholders={'daily':'新しい習慣を追加…','occasional':'ときどき習慣を追加（進捗に影響しない）…','quit':'やめたい習慣を入力… チェック＝今日は我慢できた'};
+  btn.className='add-type-btn'+(addType==='occasional'?' mode-occasional':addType==='quit'?' mode-quit':addType==='goal'?' mode-goal':'');
+  const placeholders={'daily':'新しい習慣を追加…','occasional':'ときどき習慣を追加（進捗に影響しない）…','quit':'やめたい習慣を入力… チェック＝今日は我慢できた','goal':'目標・親からのコメントを入力…'};
   document.getElementById('add-input').placeholder=placeholders[addType];
 });
 
@@ -1120,11 +1129,66 @@ function render(){
     if(!perfectRow.dataset.wasComplete)launchConfetti();
     perfectRow.dataset.wasComplete='1';
   }else{perfectRow.style.display='none';perfectRow.dataset.wasComplete='';}
+
+  // 目標コメント表示
+  const goalHabits=habits.filter(h=>h.type==='goal');
+  const goalArea=document.getElementById('goal-comment-area');
+  if(goalHabits.length){
+    goalArea.style.display='block';
+    goalArea.innerHTML=goalHabits.map((h,gi)=>{
+      const actualIdx=habits.indexOf(h);
+      return`<div class="goal-comment-item" data-idx="${actualIdx}">
+        <span style="font-size:11px;flex-shrink:0;">🎯</span>
+        <span class="goal-comment-text">${escHtml(h.name)}</span>
+        <button class="goal-comment-btn goal-edit-btn" data-idx="${actualIdx}" title="編集">✏️</button>
+        <button class="goal-comment-btn goal-del-btn" data-idx="${actualIdx}" title="削除">✕</button>
+      </div>`;
+    }).join('');
+    // 編集
+    goalArea.querySelectorAll('.goal-edit-btn').forEach(btn=>{
+      btn.addEventListener('click',e=>{
+        e.stopPropagation();
+        const idx=parseInt(btn.dataset.idx);
+        const habit=habits[idx];
+        const item=btn.closest('.goal-comment-item');
+        item.innerHTML=`
+          <span style="font-size:11px;flex-shrink:0;">🎯</span>
+          <input type="text" value="${escHtml(habit.name)}" style="flex:1;height:24px;border:1.5px solid var(--blue);border-radius:6px;padding:0 6px;font-family:'Noto Sans JP',sans-serif;font-size:12px;color:var(--text);background:white;outline:none;min-width:0;">
+          <button class="goal-comment-btn goal-save-btn" title="保存" style="opacity:1;color:var(--check);">✓</button>
+          <button class="goal-comment-btn goal-cancel-btn" title="取消">✕</button>`;
+        const inp=item.querySelector('input');inp.focus();inp.select();
+        const doSave=async()=>{
+          const v=inp.value.trim();if(!v)return render();
+          const a=getCache();const u=a.users.find(u=>u.id===a.currentUserId);
+          u.habits[idx].name=v;setCache(a);await saveData();render();
+        };
+        item.querySelector('.goal-save-btn').addEventListener('click',e2=>{e2.stopPropagation();doSave();});
+        item.querySelector('.goal-cancel-btn').addEventListener('click',e2=>{e2.stopPropagation();render();});
+        inp.addEventListener('keydown',e2=>{if(e2.key==='Enter')doSave();if(e2.key==='Escape')render();});
+        inp.addEventListener('click',e2=>e2.stopPropagation());
+      });
+    });
+    // 削除
+    goalArea.querySelectorAll('.goal-del-btn').forEach(btn=>{
+      btn.addEventListener('click',async e=>{
+        e.stopPropagation();
+        const idx=parseInt(btn.dataset.idx);
+        const a=getCache();const u=a.users.find(uu=>uu.id===a.currentUserId);
+        const habit=JSON.parse(JSON.stringify(u.habits[idx]));
+        habit.deletedAt=TODAY;if(!u.archive)u.archive=[];
+        u.archive.unshift(habit);u.habits.splice(idx,1);
+        setCache(a);render();await saveData();showToast(`「${habit.name}」を削除しました`);
+      });
+    });
+  }else{
+    goalArea.style.display='none';goalArea.innerHTML='';
+  }
   const {archive}=getUserData();
   const badge=document.getElementById('archive-badge');
   if(badge){badge.textContent=archive.length;badge.style.display=archive.length>0?'inline':'none';}
   const list=document.getElementById('habit-list');
-  if(!habits.length){
+  const nonGoalHabits=habits.filter(h=>h.type!=='goal');
+  if(!nonGoalHabits.length){
     list.innerHTML=`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">まだ習慣がありません<br>下のフォームから追加してください</div></div>`;
     return;
   }
@@ -1132,6 +1196,8 @@ function render(){
 
   habits.forEach(habit=>{
     const idx=habits.indexOf(habit);
+    // goal タイプは進捗エリアに表示するため、習慣リストには表示しない
+    if(habit.type==='goal')return;
     const checkedToday=!!(habit.logs||{})[TODAY];
     const type=habit.type||'daily';
     const isQuit=type==='quit';
