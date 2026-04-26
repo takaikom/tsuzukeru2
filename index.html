@@ -560,6 +560,10 @@
       <div class="btn-icon sync-icon">🔗</div>
       <div><div>グループ・共有の設定</div><div class="btn-desc" id="sync-status-label">未設定（ローカル保存中）</div></div>
     </button>
+    <button class="sheet-btn" id="force-sync-btn">
+      <div class="btn-icon sync-icon">🔄</div>
+      <div><div>今すぐ同期する</div><div class="btn-desc">リモートから最新データを強制取得</div></div>
+    </button>
     <button class="sheet-btn" id="delete-group-btn">
       <div class="btn-icon" style="background:var(--red-light);">🗑️</div>
       <div><div id="delete-group-label">このグループを削除</div><div class="btn-desc">一時削除します（復元可能）</div></div>
@@ -752,15 +756,17 @@ async function syncFromRemote(silent=false){
       merged.users.push(ru);
     }else{
       // 同じユーザーはログをマージ（どちらかにあれば残す、削除はローカル優先）
+      const deletedKeys=lu.deletedHabitKeys||[];
       (ru.habits||[]).forEach(rh=>{
         const lh=lu.habits.find(h=>h.name===rh.name&&h.type===rh.type);
         if(lh){
           // リモートのログをローカルにマージ（ローカルにないキーだけ追加）
           Object.keys(rh.logs||{}).forEach(k=>{if(!(k in (lh.logs||{})))lh.logs[k]=rh.logs[k];});
+        }else{
+          // ローカルに存在しない習慣：削除済みリストにない場合のみ追加
+          const rhKey=(rh.createdAt||'')+'::'+(rh.name||'');
+          if(!deletedKeys.includes(rhKey)){lu.habits.push(migrateHabit({...rh}));}
         }
-        // goal タイプはリモートにあってローカルにないものを追加（他ユーザーの目標コメントを同期）
-        else if(rh.type==='goal'){lu.habits.push(migrateHabit({...rh}));}
-        // その他のタイプはローカルにない習慣を追加しない（ローカルで削除済みかもしれないため）
       });
       // goal タイプのテキスト更新をリモートから反映（updatedAt が新しい方を優先）
       (ru.habits||[]).filter(rh=>rh.type==='goal').forEach(rh=>{
@@ -1184,6 +1190,10 @@ function render(){
         const habit=JSON.parse(JSON.stringify(u.habits[idx]));
         habit.deletedAt=TODAY;if(!u.archive)u.archive=[];
         u.archive.unshift(habit);u.habits.splice(idx,1);
+        // 削除済み習慣キーを記録（同期時に再追加されないようにする）
+        const hkey=(habit.createdAt||'')+'::'+(habit.name||'');
+        if(!u.deletedHabitKeys)u.deletedHabitKeys=[];
+        if(!u.deletedHabitKeys.includes(hkey))u.deletedHabitKeys.push(hkey);
         setCache(a);render();await saveData();showToast(`「${habit.name}」を削除しました`);
       });
     });
@@ -1359,6 +1369,10 @@ function render(){
       const habit=JSON.parse(JSON.stringify(u.habits[idx]));
       habit.deletedAt=TODAY;if(!u.archive)u.archive=[];
       u.archive.unshift(habit);u.habits.splice(idx,1);
+      // 削除済み習慣キーを記録（同期時に再追加されないようにする）
+      const hkey=(habit.createdAt||'')+'::'+(habit.name||'');
+      if(!u.deletedHabitKeys)u.deletedHabitKeys=[];
+      if(!u.deletedHabitKeys.includes(hkey))u.deletedHabitKeys.push(hkey);
       setCache(a);render();await saveData();showToast(`「${habit.name}」をアーカイブしました`);
     });
   });
@@ -1525,6 +1539,15 @@ function renderArchive(){
   }));
 }
 document.getElementById('archive-back-btn').addEventListener('click',()=>{showScreen('screen-list');render();});
+
+// ── FORCE SYNC ──
+document.getElementById('force-sync-btn').addEventListener('click',async()=>{
+  overlay.classList.remove('open');
+  if(!getGasUrl()){showToast('❌ 共有設定がされていません');return;}
+  setSyncDot('syncing');
+  await syncFromRemote();
+  showToast('✅ 同期しました');
+});
 
 // ── SYNC SETUP ──
 document.getElementById('setup-back-btn').addEventListener('click',()=>showScreen('screen-list'));
@@ -2071,11 +2094,14 @@ function scheduleAutoSync(){
       const lu=local.users.find(u=>u.id===ru.id);
       if(!lu){ru.habits=(ru.habits||[]).map(migrateHabit);ru.archive=(ru.archive||[]).map(migrateHabit);local.users.push(ru);changed=true;}
       else{
-        Object.keys(ru.logs||{}).forEach(()=>{});
+        const deletedKeys=lu.deletedHabitKeys||[];
         (ru.habits||[]).forEach(rh=>{
           const lh=lu.habits.find(h=>h.name===rh.name&&h.type===rh.type);
           if(lh){Object.keys(rh.logs||{}).forEach(k=>{if(!(k in (lh.logs||{}))){lh.logs[k]=rh.logs[k];changed=true;}});}
-          else if(rh.type==='goal'){lu.habits.push(migrateHabit({...rh}));changed=true;}
+          else{
+            const rhKey=(rh.createdAt||'')+'::'+(rh.name||'');
+            if(!deletedKeys.includes(rhKey)){lu.habits.push(migrateHabit({...rh}));changed=true;}
+          }
         });
         // goal タイプのテキスト更新をリモートから反映
         (ru.habits||[]).filter(rh=>rh.type==='goal').forEach(rh=>{
