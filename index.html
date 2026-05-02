@@ -51,6 +51,8 @@
   .user-tabs::-webkit-scrollbar{display:none;}
   .user-tab{flex-shrink:0;padding:8px 14px;font-size:13px;font-weight:500;color:var(--text3);border:none;background:transparent;cursor:grab;border-bottom:2.5px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s;-webkit-tap-highlight-color:transparent;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;user-select:none;touch-action:none;}
   .user-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .user-tab.is-me{background:var(--accent-light);color:var(--accent-dark);}
+  .user-tab.is-me.active{color:var(--accent-dark);border-bottom-color:var(--accent);}
   .user-tab.drag-dragging{opacity:0.3;background:var(--surface2);}
   .user-tab.drag-over{border-bottom-color:var(--blue);color:var(--blue);}
   .user-tab-ghost{position:fixed;pointer-events:none;z-index:9999;padding:8px 14px;font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-light);border:1.5px solid var(--accent);border-radius:8px;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.18);opacity:.92;}
@@ -359,7 +361,17 @@
         <input class="welcome-new-input" id="welcome-group-name" type="text" placeholder="グループ名（例：田中家）" maxlength="20">
         <button class="welcome-add-btn" id="welcome-group-add-btn">作成</button>
       </div>
-      <div style="margin-top:28px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;font-size:11px;color:var(--text3);line-height:1.8;">
+      <!-- GAS設定（Step1：グループ選択画面） -->
+      <div style="margin-top:20px;">
+        <div class="welcome-divider" style="margin-bottom:14px;">🔗 GAS共有設定（別デバイスから参加する場合）</div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">共有グループのGAS URLを先に入力して「接続・同期」すると、グループとユーザーが読み込まれます。</div>
+          <input class="setup-url-input" id="welcome-gas-url-input" type="url" placeholder="https://script.google.com/macros/s/..." style="margin-bottom:8px;">
+          <button id="welcome-gas-save-btn" style="width:100%;height:40px;border-radius:10px;border:none;background:var(--blue);color:white;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">接続・同期してグループを読み込む</button>
+          <div id="welcome-gas-status" style="font-size:11px;color:var(--text3);margin-top:8px;min-height:16px;text-align:center;"></div>
+        </div>
+      </div>
+      <div style="margin-top:16px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;font-size:11px;color:var(--text3);line-height:1.8;">
         <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px;">⚠️ ご利用にあたって</div>
         このアプリは開発者が個人利用目的で開発したツールです。勝手に機能・仕様変更し、それに伴い不具合が発生したり、予告なく公開終了する可能性があります。<b>ご利用は自己責任でお願いします。</b><br>
         データの保証はできません（データは開発者側にはありません）。大切な情報は<b>定期的にご自身でバックアップ</b>してください。<br>
@@ -571,34 +583,34 @@
       </div>
       <label class="toggle"><input type="checkbox" id="parent-mode-toggle"><span class="toggle-track"></span></label>
     </div>
-    <button class="sheet-btn" id="sync-setup-btn">
-      <div class="btn-icon sync-icon">🔗</div>
-      <div><div>グループ・共有の設定</div><div class="btn-desc" id="sync-status-label">未設定（ローカル保存中）</div></div>
+    <button class="sheet-btn" id="push-sync-btn">
+      <div class="btn-icon" style="background:var(--blue-light);">☁️</div>
+      <div><div>GASへ送信（アップロード）</div><div class="btn-desc" id="sync-status-label">このデバイスのデータをGASに保存</div></div>
     </button>
     <button class="sheet-btn" id="force-sync-btn">
-      <div class="btn-icon sync-icon">🔄</div>
-      <div><div>今すぐ同期する</div><div class="btn-desc">リモートから最新データを取得</div></div>
+      <div class="btn-icon" style="background:var(--green-light);">⬇️</div>
+      <div><div>GASから受信（ダウンロード）</div><div class="btn-desc">GASのデータをこのデバイスに取り込む</div></div>
     </button>
-    <button class="sheet-btn" id="push-sync-btn">
-      <div class="btn-icon" style="background:var(--green-light);">☁️</div>
-      <div><div>リモートを更新する</div><div class="btn-desc">このスマホのデータをリモートに送信</div></div>
+    <button class="sheet-btn" id="switch-user-btn">
+      <div class="btn-icon" style="background:var(--blue-light);">🔄</div>
+      <div><div>グループ／ユーザーを切り替える</div><div class="btn-desc">別のグループ・ユーザーとして使う</div></div>
+    </button>
+    <button class="sheet-btn" id="rename-group-btn">
+      <div class="btn-icon" style="background:var(--blue-light);">✏️</div>
+      <div><div id="rename-group-label">グループ名を変更</div><div class="btn-desc" id="rename-group-desc"></div></div>
     </button>
     <button class="sheet-btn" id="delete-group-btn">
       <div class="btn-icon" style="background:var(--red-light);">🗑️</div>
-      <div><div id="delete-group-label">このグループを削除</div><div class="btn-desc">一時削除します（復元可能）</div></div>
+      <div><div id="delete-group-label">このグループを削除</div><div class="btn-desc">一時削除（復元可能）</div></div>
     </button>
     <hr class="sheet-divider">
-    <button class="sheet-btn" id="switch-user-btn">
-      <div class="btn-icon" style="background:var(--blue-light);">🔄</div>
-      <div><div>ユーザーを切り替える</div><div class="btn-desc">別のユーザーとして使う</div></div>
-    </button>
     <button class="sheet-btn" id="rename-user-btn">
-      <div class="btn-icon user-edit">✏️</div>
-      <div><div id="rename-user-label">名前を変更</div><div class="btn-desc">このユーザーの名前を変更します</div></div>
+      <div class="btn-icon user-edit">👤</div>
+      <div><div id="rename-user-label">名前を変更</div><div class="btn-desc">このユーザーの名前を変更</div></div>
     </button>
     <button class="sheet-btn" id="delete-user-btn">
       <div class="btn-icon user-del">🗑️</div>
-      <div><div>このユーザーを削除</div><div class="btn-desc">一時削除します（復元可能）</div></div>
+      <div><div id="delete-user-label">このユーザーを削除</div><div class="btn-desc">一時削除（復元可能）</div></div>
     </button>
     <hr class="sheet-divider">
     <button class="sheet-btn" id="archive-btn">
@@ -996,6 +1008,46 @@ async function renderWelcomeStep2(group){
 
 document.getElementById('welcome-back-to-groups').addEventListener('click',()=>renderWelcomeStep1());
 
+// ── WELCOME STEP1: GAS接続ハンドラ ──
+document.getElementById('welcome-gas-save-btn').addEventListener('click',async()=>{
+  const gasInput=document.getElementById('welcome-gas-url-input');
+  const gasStatus=document.getElementById('welcome-gas-status');
+  const url=gasInput.value.trim();
+  if(!url){gasStatus.textContent='⚠️ URLを入力してください';return;}
+  gasStatus.textContent='接続中…';
+  // 一時的なグループを作成してGAS URLを保存、リモートからグループ・ユーザーを取得
+  const remote=await remoteLoad(url);
+  if(!remote){gasStatus.textContent='❌ 接続に失敗しました。URLを確認してください';return;}
+  // リモートからグループ名を取得（なければデフォルト）
+  const remoteName=remote.groupName||'共有グループ';
+  // 既存グループに同じGAS URLがないか確認
+  const groups=loadGroups();
+  let existingGroup=groups.find(g=>g.gasUrl===url);
+  if(!existingGroup){
+    // なければ新規グループとして追加
+    const id='g'+Date.now();
+    existingGroup={id,name:remoteName,gasUrl:url};
+    groups.push(existingGroup);saveGroups(groups);
+  }
+  setCurrentGroupId(existingGroup.id);resetCache();
+  // リモートデータをマージして保存
+  const local=getCache();
+  const merged={...remote,groupName:remoteName};
+  const mergedDeleted=[...(local.deletedUsers||[])];
+  (remote.deletedUsers||[]).forEach(ru=>{if(!mergedDeleted.find(u=>u.id===ru.id))mergedDeleted.push(ru);});
+  merged.deletedUsers=mergedDeleted;
+  merged.users=(merged.users||[]).filter(ru=>!mergedDeleted.find(u=>u.id===ru.id));
+  local.users.forEach(lu=>{if(!merged.users.find(ru=>ru.id===lu.id)&&!mergedDeleted.find(u=>u.id===lu.id))merged.users.push(lu);});
+  merged.currentUserId=local.currentUserId||merged.users[0]?.id||'';
+  (merged.users||[]).forEach(u=>{u.habits=(u.habits||[]).map(migrateHabit);u.archive=(u.archive||[]).map(migrateHabit);});
+  setCache(merged);setSyncDot('ok');
+  gasStatus.textContent='✅ 同期しました！グループを選んでください';
+  // グループ一覧を再描画してStep1を更新
+  renderWelcomeStep1();
+  // 接続したグループに直接移動するか確認のためStep2へ
+  await renderWelcomeStep2(existingGroup);
+});
+
 document.getElementById('welcome-group-add-btn').addEventListener('click',()=>{
   const name=document.getElementById('welcome-group-name').value.trim();
   if(!name)return;
@@ -1099,9 +1151,10 @@ function renderUserTabs(){
 
   visibleUsers.forEach(u=>{
     const btn=document.createElement('button');
-    btn.className='user-tab'+(u.id===all.currentUserId?' active':'');
+    const isMe=parent&&u.id===pinnedId;
+    btn.className='user-tab'+(u.id===all.currentUserId?' active':'')+(isMe?' is-me':'');
     btn.dataset.uid=u.id;
-    btn.textContent=u.name;
+    btn.textContent=u.name+(isMe?' 👤':'');
 
     // ── タッチ（長押し400ms→ドラッグ）──
     btn.addEventListener('touchstart',e=>{
@@ -1836,7 +1889,12 @@ const overlay=document.getElementById('sheet-overlay');
 document.getElementById('menu-btn').addEventListener('click',()=>{
   const cu=getCurrentUser();const cg=getCurrentGroup();
   document.getElementById('sheet-user-title').textContent=`${cg?cg.name+' / ':''}${cu.name}`;
-  document.getElementById('rename-user-label').textContent=`「${cu.name}」の名前を変更`;
+  document.getElementById('rename-user-label').textContent=`ユーザー「${cu.name}」の名前を変更`;
+  document.getElementById('delete-user-label').textContent=`ユーザー「${cu.name}」を削除`;
+  if(cg){
+    document.getElementById('rename-group-label').textContent=`グループ「${cg.name}」の名前を変更`;
+    document.getElementById('rename-group-desc').textContent=cg.name;
+  }
   const {archive}=getUserData();
   const badge=document.getElementById('archive-badge');
   if(badge){badge.textContent=archive.length;badge.style.display=archive.length>0?'inline':'none';}
@@ -1845,12 +1903,11 @@ document.getElementById('menu-btn').addEventListener('click',()=>{
   if(duBadge){const dc=(allData.deletedUsers||[]).length;duBadge.textContent=dc;duBadge.style.display=dc>0?'inline':'none';}
   const dgBadge=document.getElementById('deleted-groups-badge');
   if(dgBadge){const dgc=(loadDeletedGroups()).length;dgBadge.textContent=dgc;dgBadge.style.display=dgc>0?'inline':'none';}
-  document.getElementById('sync-status-label').textContent=getGasUrl()?'設定済み（家族と同期中）':'未設定（ローカル保存中）';
   const all=getCache();
   document.getElementById('delete-user-btn').style.display=all.users.length>1?'flex':'none';
   // グループが1つしかなければ削除ボタンを隠す
   document.getElementById('delete-group-btn').style.display=loadGroups().length>1?'flex':'none';
-  document.getElementById('delete-group-label').textContent=cg?`「${cg.name}」を削除`:'このグループを削除';
+  document.getElementById('delete-group-label').textContent=cg?`グループ「${cg.name}」を削除`:'このグループを削除';
   document.getElementById('parent-mode-toggle').checked=isParentMode();
   // setup画面にグループ名を表示
   if(document.getElementById('setup-current-group'))
@@ -1867,16 +1924,6 @@ document.getElementById('parent-mode-toggle').addEventListener('change',function
   if(!this.checked){const p=getPinnedUserId();if(p){const a=getCache();a.currentUserId=p;setCache(a);}}
   renderUserTabs();render();
 });
-document.getElementById('sync-setup-btn').addEventListener('click',()=>{
-  overlay.classList.remove('open');
-  const cg=getCurrentGroup();
-  document.getElementById('setup-current-group').textContent=cg?`現在のグループ：${cg.name}`:'';
-  if(document.getElementById('setup-group-name-input'))
-    document.getElementById('setup-group-name-input').value=cg?cg.name:'';
-  document.getElementById('gas-url-input').value=getGasUrl();
-  document.getElementById('setup-status').textContent='';
-  showScreen('screen-setup');
-});
 document.getElementById('switch-user-btn').addEventListener('click',()=>{
   overlay.classList.remove('open');
   // ピンをクリアしてウェルカムStep2（ユーザー選択）へ
@@ -1885,6 +1932,26 @@ document.getElementById('switch-user-btn').addEventListener('click',()=>{
   if(cg){renderWelcomeStep2(cg).then(()=>showScreen('screen-welcome'));}
   else{renderWelcomeStep1();showScreen('screen-welcome');}
 });
+document.getElementById('rename-group-btn').addEventListener('click',()=>{
+  overlay.classList.remove('open');
+  const cg=getCurrentGroup();if(!cg)return;
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:250;display:flex;align-items:flex-end;justify-content:center;';
+  ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp .24s cubic-bezier(.22,1,.36,1);"><div style="font-size:15px;font-weight:700;margin-bottom:16px;">グループ名を変更</div><div style="display:flex;gap:8px;"><input id="_rgi" type="text" maxlength="20" style="flex:1;height:44px;border:1.5px solid var(--accent);border-radius:12px;padding:0 14px;font-family:inherit;font-size:14px;color:var(--text);background:white;outline:none;" value="${escHtml(cg.name)}"><button id="_rgo" style="height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">保存</button></div><button id="_rgc" style="width:100%;margin-top:10px;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;">キャンセル</button></div>`;
+  document.body.appendChild(ov);
+  const inp=ov.querySelector('#_rgi');setTimeout(()=>{inp.focus();inp.select();},50);
+  const doSave=async()=>{
+    const name=inp.value.trim();if(!name||name===cg.name){ov.remove();return;}
+    const groups=loadGroups();const g=groups.find(g=>g.id===cg.id);if(g){g.name=name;saveGroups(groups);}
+    if(getGasUrl()){const all=getCache();remoteSave({...all,groupName:name}).then(ok=>{if(!ok)setSyncDot('err');});}
+    ov.remove();renderGroupTabs();renderUserTabs();render();showToast(`✅ グループ名を「${name}」に変更しました`);
+  };
+  ov.querySelector('#_rgo').addEventListener('click',doSave);
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter')doSave();if(e.key==='Escape')ov.remove();});
+  ov.querySelector('#_rgc').addEventListener('click',()=>ov.remove());
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+});
+
 document.getElementById('rename-user-btn').addEventListener('click',()=>{
   overlay.classList.remove('open');
   const cu=getCurrentUser();
@@ -2330,20 +2397,31 @@ scheduleAutoSync();
 
 // ── INIT ──
 (function(){
-  // グループがなければデフォルトグループを作成（既存ユーザー向け）
+  const LAUNCHED_KEY='tsuzukeru_launched';
+  const hasLaunched=!!localStorage.getItem(LAUNCHED_KEY);
+
+  // 初回起動フラグを立てる（次回からはStep1をスキップ）
+  localStorage.setItem(LAUNCHED_KEY,'1');
+
+  // グループがなければデフォルトグループを作成（既存ユーザー向け・初回以外）
   let groups=loadGroups();
-  if(!groups.length){
+  if(!groups.length&&hasLaunched){
     const id='g_default';
     groups=[{id,name:'わたしの習慣',gasUrl:''}];
     saveGroups(groups);
     setCurrentGroupId(id);
   }
   // currentGroupIdがなければ最初のグループに
-  if(!getCurrentGroupId()||!groups.find(g=>g.id===getCurrentGroupId())){
+  if(groups.length&&(!getCurrentGroupId()||!groups.find(g=>g.id===getCurrentGroupId()))){
     setCurrentGroupId(groups[0].id);
   }
   resetCache();
   if(getGasUrl()){setSyncDot('syncing');}else{setSyncDot('off');}
+
+  // ── 完全初回（フラグなし）→ Step1（グループ選択）を表示 ──
+  if(!hasLaunched){
+    renderWelcomeStep1();showScreen('screen-welcome');return;
+  }
 
   const pinned=getPinnedUserId();
   const all=getCache();
@@ -2353,13 +2431,11 @@ scheduleAutoSync();
     if(getGasUrl())syncFromRemote();
     showScreen('screen-list');renderGroupTabs();renderUserTabs();render();
   }else{
-    // ピンなし or 無効 → ウェルカム画面へ（グループは既に決まっているのでStep2から）
+    // ピンなし or 無効 → Step2から誰かを選ばせる
     const cg=getCurrentGroup();
     if(cg&&all.users.length){
-      // ユーザーはいるがピンが飛んだ → Step2から誰かを選ばせる
       renderWelcomeStep2(cg).then(()=>showScreen('screen-welcome'));
     }else{
-      // 完全初回 or グループなし → Step1から
       renderWelcomeStep1();showScreen('screen-welcome');
     }
   }
