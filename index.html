@@ -2135,40 +2135,47 @@ document.getElementById('an-next-month').addEventListener('click',()=>{
 });
 document.getElementById('deleted-users-btn').addEventListener('click',()=>{
   overlay.classList.remove('open');
-  const a=getCache();
-  const deleted=a.deletedUsers||[];
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:250;display:flex;align-items:flex-end;justify-content:center;';
-  const listHtml=deleted.length
-    ? deleted.map((u,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);margin-bottom:8px;">
-        <div style="flex:1;"><div style="font-size:14px;font-weight:500;">${escHtml(u.name)}</div><div style="font-size:11px;color:var(--text3);">習慣${(u.habits||[]).length}件・削除日:${u.deletedAt||'不明'}</div></div>
-        <button data-idx="${i}" class="restore-user-btn" style="padding:6px 14px;border-radius:8px;border:1px solid var(--blue);background:var(--blue-light);color:var(--blue);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;">復元</button>
-        <button data-idx="${i}" class="perm-del-user-btn" style="padding:6px 14px;border-radius:8px;border:1px solid #E24B4A;background:var(--red-light);color:#E24B4A;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;">完全削除</button>
-      </div>`).join('')
-    : '<div style="text-align:center;padding:20px;color:var(--text3);font-size:14px;">一時削除されたユーザーはいません</div>';
-  ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;max-height:80vh;overflow-y:auto;animation:slideUp .24s cubic-bezier(.22,1,.36,1);">
-    <div style="font-size:15px;font-weight:700;margin-bottom:16px;">削除したユーザー</div>
-    ${listHtml}
-    <button id="duu-close" style="width:100%;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;margin-top:4px;">閉じる</button>
-  </div>`;
+  const sheet=document.createElement('div');
+  sheet.style.cssText='background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;max-height:80vh;overflow-y:auto;animation:slideUp .24s cubic-bezier(.22,1,.36,1);';
+  ov.appendChild(sheet);
   document.body.appendChild(ov);
-  ov.querySelectorAll('.restore-user-btn').forEach(btn=>btn.addEventListener('click',async()=>{
-    const idx=parseInt(btn.dataset.idx);
-    const b=getCache();if(!b.deletedUsers)b.deletedUsers=[];
-    const u=b.deletedUsers.splice(idx,1)[0];
-    delete u.deletedAt;
-    b.users.push(u);
-    setCache(b);await saveData();ov.remove();
-    renderGroupTabs();renderUserTabs();render();showToast(`✅「${u.name}」を復元しました`);
-  }));
-  ov.querySelectorAll('.perm-del-user-btn').forEach(btn=>btn.addEventListener('click',async()=>{
-    const idx=parseInt(btn.dataset.idx);
-    const b=getCache();if(!b.deletedUsers)b.deletedUsers=[];
-    const u=b.deletedUsers.splice(idx,1)[0];
-    setCache(b);await saveData();ov.remove();
-    showToast(`「${u.name}」を完全削除しました`);
-  }));
-  ov.querySelector('#duu-close').addEventListener('click',()=>ov.remove());
+
+  function renderDeletedList(){
+    const a=getCache();const deleted=a.deletedUsers||[];
+    const listHtml=deleted.length
+      ? deleted.map((u,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);margin-bottom:8px;">
+          <div style="flex:1;"><div style="font-size:14px;font-weight:500;">${escHtml(u.name)}</div><div style="font-size:11px;color:var(--text3);">習慣${(u.habits||[]).length}件・削除日:${u.deletedAt||'不明'}</div></div>
+          <button data-idx="${i}" class="restore-user-btn" style="padding:6px 14px;border-radius:8px;border:1px solid var(--blue);background:var(--blue-light);color:var(--blue);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;">復元</button>
+          <button data-idx="${i}" class="perm-del-user-btn" style="padding:6px 14px;border-radius:8px;border:1px solid #E24B4A;background:var(--red-light);color:#E24B4A;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;">完全削除</button>
+        </div>`).join('')
+      : '<div style="text-align:center;padding:20px;color:var(--text3);font-size:14px;">一時削除されたユーザーはいません</div>';
+    sheet.innerHTML=`<div style="font-size:15px;font-weight:700;margin-bottom:16px;">削除したユーザー</div>
+      ${listHtml}
+      <button id="duu-close" style="width:100%;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;margin-top:4px;">閉じる</button>`;
+    sheet.querySelectorAll('.restore-user-btn').forEach(btn=>btn.addEventListener('click',async()=>{
+      const idx=parseInt(btn.dataset.idx);
+      const b=getCache();if(!b.deletedUsers)b.deletedUsers=[];
+      const u=b.deletedUsers.splice(idx,1)[0];
+      delete u.deletedAt;
+      b.users.push(u);
+      setCache(b);await saveData();
+      renderGroupTabs();renderUserTabs();render();showToast(`✅「${u.name}」を復元しました`);
+      renderDeletedList();
+    }));
+    sheet.querySelectorAll('.perm-del-user-btn').forEach(btn=>btn.addEventListener('click',async()=>{
+      const idx=parseInt(btn.dataset.idx);
+      const b=getCache();if(!b.deletedUsers)b.deletedUsers=[];
+      const u=b.deletedUsers.splice(idx,1)[0];
+      setCache(b);await saveData();
+      showToast(`「${u.name}」を完全削除しました`);
+      renderDeletedList();
+    }));
+    sheet.querySelector('#duu-close').addEventListener('click',()=>ov.remove());
+  }
+
+  renderDeletedList();
   ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
 });
 document.getElementById('export-btn').addEventListener('click',()=>{
