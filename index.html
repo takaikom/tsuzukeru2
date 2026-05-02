@@ -49,8 +49,11 @@
   /* USER TABS */
   .user-tabs{display:flex;align-items:center;overflow-x:auto;padding:0 16px;scrollbar-width:none;border-top:1px solid var(--border);}
   .user-tabs::-webkit-scrollbar{display:none;}
-  .user-tab{flex-shrink:0;padding:8px 14px;font-size:13px;font-weight:500;color:var(--text3);border:none;background:transparent;cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s;-webkit-tap-highlight-color:transparent;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;}
+  .user-tab{flex-shrink:0;padding:8px 14px;font-size:13px;font-weight:500;color:var(--text3);border:none;background:transparent;cursor:grab;border-bottom:2.5px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s;-webkit-tap-highlight-color:transparent;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;user-select:none;touch-action:none;}
   .user-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .user-tab.drag-dragging{opacity:0.3;background:var(--surface2);}
+  .user-tab.drag-over{border-bottom-color:var(--blue);color:var(--blue);}
+  .user-tab-ghost{position:fixed;pointer-events:none;z-index:9999;padding:8px 14px;font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-light);border:1.5px solid var(--accent);border-radius:8px;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.18);opacity:.92;}
   .add-user-btn{flex-shrink:0;width:28px;height:28px;border-radius:50%;border:1.5px dashed var(--border2);background:transparent;color:var(--text3);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;margin-left:6px;-webkit-tap-highlight-color:transparent;}
   .add-user-btn:active{border-color:var(--accent);color:var(--accent);}
 
@@ -1051,13 +1054,132 @@ function renderUserTabs(){
   const all=getCache();const tabs=document.getElementById('user-tabs');tabs.innerHTML='';
   const parent=isParentMode();const pinnedId=getPinnedUserId();
   const visibleUsers=parent?all.users:all.users.filter(u=>u.id===pinnedId);
+
+  // ── ドラッグ状態管理 ──
+  let dragSrcId=null,ghost=null,isDragging=false;
+  let startX=0,startY=0,dragOffX=0,dragOffY=0;
+  let longPressTimer=null;
+
+  function moveGhost(x,y){if(ghost){ghost.style.left=(x-dragOffX)+'px';ghost.style.top=(y-dragOffY)+'px';}}
+
+  function getTargetUid(x,y){
+    if(ghost)ghost.style.display='none';
+    const el=document.elementFromPoint(x,y);
+    if(ghost)ghost.style.display='';
+    const btn=el&&el.closest('[data-uid]');
+    return btn?btn.dataset.uid:null;
+  }
+
+  function commitDrag(x,y){
+    const tgtId=getTargetUid(x,y);
+    if(ghost){ghost.remove();ghost=null;}
+    tabs.querySelectorAll('.drag-dragging,.drag-over').forEach(el=>el.classList.remove('drag-dragging','drag-over'));
+    document.body.style.cursor='';
+    if(tgtId&&tgtId!==dragSrcId){
+      const a=getCache();const users=a.users;
+      const si=users.findIndex(u=>u.id===dragSrcId),ti=users.findIndex(u=>u.id===tgtId);
+      if(si>=0&&ti>=0){const[m]=users.splice(si,1);users.splice(ti,0,m);setCache(a);saveData();}
+      renderUserTabs();render();
+      showToast('✅ 並び順を変更しました');
+    }
+    isDragging=false;dragSrcId=null;
+  }
+
+  function startDragVisual(btn,x,y){
+    isDragging=true;
+    const rect=btn.getBoundingClientRect();
+    dragOffX=x-rect.left;dragOffY=y-rect.top;
+    btn.classList.add('drag-dragging');
+    ghost=document.createElement('div');
+    ghost.className='user-tab-ghost';
+    ghost.textContent=btn.textContent;
+    document.body.appendChild(ghost);
+    moveGhost(x,y);
+  }
+
   visibleUsers.forEach(u=>{
     const btn=document.createElement('button');
     btn.className='user-tab'+(u.id===all.currentUserId?' active':'');
+    btn.dataset.uid=u.id;
     btn.textContent=u.name;
-    btn.addEventListener('click',()=>{const a=getCache();a.currentUserId=u.id;setCache(a);renderUserTabs();render();});
+
+    // ── タッチ（長押し400ms→ドラッグ）──
+    btn.addEventListener('touchstart',e=>{
+      startX=e.touches[0].clientX;startY=e.touches[0].clientY;
+      dragSrcId=u.id;isDragging=false;
+      longPressTimer=setTimeout(()=>{
+        startDragVisual(btn,startX,startY);
+        if(navigator.vibrate)navigator.vibrate(40);
+      },400);
+    },{passive:true});
+
+    btn.addEventListener('touchmove',e=>{
+      const cx=e.touches[0].clientX,cy=e.touches[0].clientY;
+      if(!isDragging){
+        if(Math.abs(cx-startX)>6||Math.abs(cy-startY)>6){clearTimeout(longPressTimer);longPressTimer=null;dragSrcId=null;}
+        return;
+      }
+      e.preventDefault();
+      moveGhost(cx,cy);
+      tabs.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));
+      const tgtId=getTargetUid(cx,cy);
+      if(tgtId&&tgtId!==dragSrcId){const t=tabs.querySelector(`[data-uid="${tgtId}"]`);if(t)t.classList.add('drag-over');}
+    },{passive:false});
+
+    btn.addEventListener('touchend',e=>{
+      clearTimeout(longPressTimer);longPressTimer=null;
+      if(!isDragging){
+        // 短タップ → ユーザー切り替え
+        const a=getCache();a.currentUserId=u.id;setCache(a);renderUserTabs();render();
+        return;
+      }
+      const t=e.changedTouches[0];commitDrag(t.clientX,t.clientY);
+    },{passive:true});
+
+    btn.addEventListener('touchcancel',()=>{
+      clearTimeout(longPressTimer);longPressTimer=null;
+      if(ghost){ghost.remove();ghost=null;}
+      tabs.querySelectorAll('.drag-dragging,.drag-over').forEach(el=>el.classList.remove('drag-dragging','drag-over'));
+      isDragging=false;dragSrcId=null;
+    },{passive:true});
+
+    // ── マウス（長押し300ms→ドラッグ）──
+    btn.addEventListener('mousedown',e=>{
+      if(e.button!==0)return;
+      startX=e.clientX;startY=e.clientY;dragSrcId=u.id;isDragging=false;
+      longPressTimer=setTimeout(()=>{
+        startDragVisual(btn,e.clientX,e.clientY);
+        document.body.style.cursor='grabbing';
+      },300);
+    });
+
+    btn.addEventListener('click',e=>{
+      if(isDragging){e.preventDefault();return;}
+      clearTimeout(longPressTimer);longPressTimer=null;
+      const a=getCache();a.currentUserId=u.id;setCache(a);renderUserTabs();render();
+    });
+
     tabs.appendChild(btn);
   });
+
+  // マウスのムーブ・アップはdocumentで捕捉
+  const onMove=e=>{
+    if(!isDragging)return;
+    moveGhost(e.clientX,e.clientY);
+    tabs.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));
+    const tgtId=getTargetUid(e.clientX,e.clientY);
+    if(tgtId&&tgtId!==dragSrcId){const t=tabs.querySelector(`[data-uid="${tgtId}"]`);if(t)t.classList.add('drag-over');}
+  };
+  const onUp=e=>{
+    clearTimeout(longPressTimer);longPressTimer=null;
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+    if(!isDragging){isDragging=false;dragSrcId=null;document.body.style.cursor='';return;}
+    commitDrag(e.clientX,e.clientY);
+  };
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('mouseup',onUp);
+
   // ＋ユーザー追加ボタンは親モードのみ表示
   if(parent){
     const addBtn=document.createElement('button');
