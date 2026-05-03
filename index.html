@@ -51,8 +51,8 @@
   .user-tabs::-webkit-scrollbar{display:none;}
   .user-tab{flex-shrink:0;padding:8px 14px;font-size:13px;font-weight:500;color:var(--text3);border:none;background:transparent;cursor:grab;border-bottom:2.5px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s;-webkit-tap-highlight-color:transparent;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;user-select:none;touch-action:none;}
   .user-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
-  .user-tab.is-me{background:var(--accent-light);color:var(--accent-dark);}
-  .user-tab.is-me.active{color:var(--accent-dark);border-bottom-color:var(--accent);}
+  .user-tab.is-me{}
+  .user-tab.is-me.active{border-bottom-color:var(--accent);}
   .user-tab.drag-dragging{opacity:0.3;background:var(--surface2);}
   .user-tab.drag-over{border-bottom-color:var(--blue);color:var(--blue);}
   .user-tab-ghost{position:fixed;pointer-events:none;z-index:9999;padding:8px 14px;font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-light);border:1.5px solid var(--accent);border-radius:8px;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.18);opacity:.92;}
