@@ -30,11 +30,11 @@
   .app-title{font-size:20px;font-weight:700;letter-spacing:-.5px;}
   .app-title span{color:var(--accent);}
   .header-right{display:flex;align-items:center;gap:8px;}
-  .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--border2);flex-shrink:0;transition:background .3s;}
+  .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--border2);flex-shrink:0;transition:background .3s;cursor:help;}
   .sync-dot.ok{background:var(--check);}
   .sync-dot.err{background:#E24B4A;}
-  .sync-dot.syncing{background:var(--amber);animation:pulse 1s infinite;}
-  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+  .sync-dot.syncing{background:var(--amber);animation:blink 1s infinite;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
   .date-display{font-size:12px;color:var(--text2);padding:0 20px 6px;}
   .menu-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;}
 
@@ -409,11 +409,16 @@
       <div class="header-top">
         <div class="app-title">つづ<span>け</span>る</div>
         <div class="header-right">
-          <div class="sync-dot" id="sync-dot"></div>
+          <div class="sync-dot" id="sync-dot" title="ローカル保存のみ"></div>
+          <button class="menu-btn" id="gas-upload-btn" title="GASへアップロード" style="font-size:16px;">↑</button>
+          <button class="menu-btn" id="gas-download-btn" title="GASからダウンロード" style="font-size:16px;">↓</button>
           <button class="menu-btn" id="menu-btn">⋯</button>
         </div>
       </div>
-      <div class="date-display" id="date-display"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 20px 6px;">
+        <div class="date-display" id="date-display" style="padding:0;"></div>
+        <div id="gas-sync-time" style="font-size:10px;color:var(--text3);display:none;white-space:nowrap;flex-shrink:0;margin-left:8px;"></div>
+      </div>
       <div class="group-tabs" id="group-tabs"></div>
       <div class="user-tabs" id="user-tabs"></div>
     </div>
@@ -583,14 +588,6 @@
       </div>
       <label class="toggle"><input type="checkbox" id="parent-mode-toggle"><span class="toggle-track"></span></label>
     </div>
-    <button class="sheet-btn" id="push-sync-btn">
-      <div class="btn-icon" style="background:var(--blue-light);">☁️</div>
-      <div><div>GASへ送信（アップロード）</div><div class="btn-desc" id="sync-status-label">このデバイスのデータをGASに保存</div></div>
-    </button>
-    <button class="sheet-btn" id="force-sync-btn">
-      <div class="btn-icon" style="background:var(--green-light);">⬇️</div>
-      <div><div>GASから受信（ダウンロード）</div><div class="btn-desc">GASのデータをこのデバイスに取り込む</div></div>
-    </button>
     <button class="sheet-btn" id="switch-user-btn">
       <div class="btn-icon" style="background:var(--blue-light);">🔄</div>
       <div><div>グループ／ユーザーを切り替える</div><div class="btn-desc">別のグループ・ユーザーとして使う</div></div>
@@ -697,6 +694,40 @@ function setPinnedUserId(id){localStorage.setItem(PINNED_KEY+getCurrentGroupId()
 function isParentMode(){return localStorage.getItem(PARENT_KEY+'_'+getCurrentGroupId())==='1';}
 function setParentMode(v){localStorage.setItem(PARENT_KEY+'_'+getCurrentGroupId(),v?'1':'0');}
 
+// ── SYNC ──
+const GAS_SYNC_TIME_KEY='tsuzukeru_gas_sync_time';
+const GAS_AUTO_SYNC_KEY='tsuzukeru_gas_auto_sync';
+function getAutoSync(){return localStorage.getItem(GAS_AUTO_SYNC_KEY)!=='0';}
+function setAutoSync(v){localStorage.setItem(GAS_AUTO_SYNC_KEY,v?'1':'0');refreshGasStatus();}
+function getGasSyncTime(){try{return JSON.parse(localStorage.getItem(GAS_SYNC_TIME_KEY)||'null');}catch{return null;}}
+function setGasSyncTime(type,dt){
+  const cur=getGasSyncTime()||{};
+  cur[type]=dt;
+  localStorage.setItem(GAS_SYNC_TIME_KEY,JSON.stringify(cur));
+  renderGasSyncTime();
+}
+function renderGasSyncTime(){
+  const el=document.getElementById('gas-sync-time');
+  if(!el)return;
+  const url=getGasUrl();
+  if(!url){el.style.display='none';return;}
+  const t=getGasSyncTime();
+  const upStr=t&&t.upload?'↑ '+t.upload:'↑ なし';
+  const dnStr=t&&t.download?'↓ '+t.download:'↓ なし';
+  const autoStr=(getAutoSync()&&t&&t.auto)?'🔄 '+t.auto:'';
+  el.textContent='GAS: '+upStr+'  /  '+dnStr+(autoStr?'  /  '+autoStr:'');
+  el.style.display='';
+}
+function refreshGasStatus(){
+  const url=getGasUrl();
+  if(!url){
+    setSyncDot('off');
+  }else{
+    setSyncDot('ok');
+  }
+  renderGasSyncTime();
+}
+
 // ── SYNC DOT ──
 function setSyncDot(state){
   const dot=document.getElementById('sync-dot');if(!dot)return;
@@ -770,15 +801,15 @@ async function saveData(){
 }
 
 // ── SYNC ──
+// 同期対象：親ユーザー（pinnedUser）のみ。完全同期（リモートのデータで上書き）。
 async function syncFromRemote(silent=false){
   if(!getGasUrl()){setSyncDot('off');return;}
   if(!silent)setSyncDot('syncing');
   const remote=await remoteLoad();if(!remote){if(!silent)setSyncDot('err');return;}
   const local=getCache();
-
-  // ローカルを正として、リモートにしかいないユーザーだけ追加する
-  // （ローカルの最新チェック・追加データを絶対に失わない）
+  const pinnedId=getPinnedUserId();
   const merged={...local};
+
   // deletedUsersはローカルとリモートをマージ（両方のを保持）
   const remoteDeleted=remote.deletedUsers||[];
   const localDeleted=(merged.deletedUsers||[]).slice();
@@ -786,7 +817,6 @@ async function syncFromRemote(silent=false){
   merged.deletedUsers=localDeleted;
 
   (remote.users||[]).forEach(ru=>{
-    // ローカルで削除済みのユーザーはスキップ（復活させない）
     if(merged.deletedUsers.find(u=>u.id===ru.id))return;
     const lu=merged.users.find(u=>u.id===ru.id);
     if(!lu){
@@ -794,33 +824,20 @@ async function syncFromRemote(silent=false){
       ru.habits=(ru.habits||[]).map(migrateHabit);
       ru.archive=(ru.archive||[]).map(migrateHabit);
       merged.users.push(ru);
-    }else{
-      // 同じユーザーはログをマージ（どちらかにあれば残す、削除はローカル優先）
-      const deletedKeys=lu.deletedHabitKeys||[];
-      (ru.habits||[]).forEach(rh=>{
-        const lh=lu.habits.find(h=>h.name===rh.name&&h.type===rh.type);
-        if(lh){
-          // リモートのログをローカルにマージ（ローカルにないキーだけ追加）
-          Object.keys(rh.logs||{}).forEach(k=>{if(!(k in (lh.logs||{})))lh.logs[k]=rh.logs[k];});
-        }else{
-          // ローカルに存在しない習慣：削除済みリストにない場合のみ追加
-          const rhKey=(rh.createdAt||'')+'::'+(rh.name||'');
-          if(!deletedKeys.includes(rhKey)){lu.habits.push(migrateHabit({...rh}));}
-        }
-      });
-      // goal タイプのテキスト更新をリモートから反映（updatedAt が新しい方を優先）
-      (ru.habits||[]).filter(rh=>rh.type==='goal').forEach(rh=>{
-        const lh=lu.habits.find(h=>h.type==='goal'&&h.createdAt===rh.createdAt);
-        if(lh&&rh.updatedAt&&(!lh.updatedAt||rh.updatedAt>lh.updatedAt)){lh.name=rh.name;lh.updatedAt=rh.updatedAt;}
-      });
+    }else if(ru.id===pinnedId){
+      // 親ユーザー（ピン）のみ完全同期：習慣・ログ・並び順をリモートで上書き
+      lu.habits=(ru.habits||[]).map(migrateHabit);
+      lu.archive=(ru.archive||[]).map(migrateHabit);
+      if(ru.deletedHabitKeys)lu.deletedHabitKeys=ru.deletedHabitKeys;
+      if(ru.name)lu.name=ru.name;
     }
+    // 親以外のユーザーはローカルを保持（上書きしない）
   });
 
-  // グループ名をリモートから反映（現在のグループにGAS連携がある場合のみ）
+  // グループ名をリモートから反映
   if(remote.groupName){
     const groups=loadGroups();const id=getCurrentGroupId();
     const g=groups.find(g=>g.id===id);
-    // GAS連携が設定されているグループのみ名前を更新する
     if(g&&g.gasUrl&&remote.groupName!==g.name){g.name=remote.groupName;saveGroups(groups);}
   }
   setCache(merged);
@@ -1094,7 +1111,8 @@ function renderGroupTabs(){
     btn.addEventListener('click',async()=>{
       if(g.id===getCurrentGroupId())return;
       setCurrentGroupId(g.id);resetCache();
-      if(g.gasUrl){setSyncDot('syncing');await syncFromRemote();}else{setSyncDot('off');}
+      if(g.gasUrl&&getAutoSync()){setSyncDot('syncing');await syncFromRemote(true);const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});setGasSyncTime('auto',now);}else if(g.gasUrl){setSyncDot('ok');}
+      else{setSyncDot('off');}
       const pinned=getPinnedUserId();const all=getCache();
       if(pinned&&all.users.find(u=>u.id===pinned)){all.currentUserId=pinned;setCache(all);}
       else if(all.users.length){all.currentUserId=all.users[0].id;setCache(all);}
@@ -1193,6 +1211,7 @@ function renderUserTabs(){
       if(!isDragging){
         // 短タップ → ユーザー切り替え
         const a=getCache();a.currentUserId=u.id;setCache(a);renderUserTabs();render();
+        if(getGasUrl()&&getAutoSync()){syncFromRemote(true).then(()=>{const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});setGasSyncTime('auto',now);});}
         return;
       }
       const t=e.changedTouches[0];commitDrag(t.clientX,t.clientY);
@@ -1219,6 +1238,7 @@ function renderUserTabs(){
       if(isDragging){e.preventDefault();return;}
       clearTimeout(longPressTimer);longPressTimer=null;
       const a=getCache();a.currentUserId=u.id;setCache(a);renderUserTabs();render();
+      if(getGasUrl()&&getAutoSync()){syncFromRemote(true).then(()=>{const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});setGasSyncTime('auto',now);});}
     });
 
     tabs.appendChild(btn);
@@ -1741,29 +1761,6 @@ function renderArchive(){
 document.getElementById('archive-back-btn').addEventListener('click',()=>{showScreen('screen-list');render();});
 
 // ── FORCE SYNC（リモートから取得）──
-document.getElementById('force-sync-btn').addEventListener('click',async()=>{
-  overlay.classList.remove('open');
-  if(!getGasUrl()){showToast('❌ 共有設定がされていません');return;}
-  setSyncDot('syncing');
-  await syncFromRemote();
-  showToast('✅ リモートから取得しました');
-});
-
-// ── PUSH SYNC（ローカル→リモートに送信）──
-document.getElementById('push-sync-btn').addEventListener('click',async()=>{
-  overlay.classList.remove('open');
-  if(!getGasUrl()){showToast('❌ 共有設定がされていません');return;}
-  setSyncDot('syncing');
-  try{
-    const cg=getCurrentGroup();
-    const all=getCache();
-    const dataToSave=cg?{...all,groupName:cg.name}:all;
-    const ok=await remoteSave(dataToSave);
-    if(ok){setSyncDot('ok');showToast('✅ リモートを更新しました');}
-    else{setSyncDot('err');showToast('❌ 送信に失敗しました');}
-  }catch{setSyncDot('err');showToast('❌ 送信に失敗しました');}
-});
-
 // ── PULL-TO-REFRESH ──
 (function(){
   let startY=0,pulling=false,triggered=false;
@@ -1867,7 +1864,7 @@ document.getElementById('setup-save-btn').addEventListener('click',async()=>{
       (merged.users||[]).forEach(u=>{u.habits=(u.habits||[]).map(migrateHabit);u.archive=(u.archive||[]).map(migrateHabit);});
       setCache(merged);
     }else{await remoteSave(getCache());}
-    setSyncDot('ok');status.textContent='✅ 接続成功！';
+    setSyncDot('ok');status.textContent='✅ 接続成功！';refreshGasStatus();
     // ピンが有効ならそのままリスト画面へ、無効なら誰かを選ばせる
     const pinned=getPinnedUserId();const all=getCache();
     if(pinned&&all.users.find(u=>u.id===pinned)){
@@ -1895,6 +1892,27 @@ document.getElementById('setup-clear-btn').addEventListener('click',()=>{
 
 // ── MENU ──
 const overlay=document.getElementById('sheet-overlay');
+// ── ヘッダー GAS↑（アップロード）──
+document.getElementById('gas-upload-btn').addEventListener('click',async()=>{
+  if(!getGasUrl()){showToast('⚠ GAS URLが設定されていません');return;}
+  setSyncDot('syncing');
+  const local=getCache();const cg=getCurrentGroup();
+  const ok=await remoteSave(cg?{...local,groupName:cg.name}:local);
+  if(ok){
+    const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    setGasSyncTime('upload',now);
+    showToast('☁️ GASへ送信しました');
+  }else showToast('⚠ 送信に失敗しました');
+});
+
+// ── ヘッダー GAS↓（ダウンロード）──
+document.getElementById('gas-download-btn').addEventListener('click',async()=>{
+  if(!getGasUrl()){showToast('⚠ GAS URLが設定されていません');return;}
+  await syncFromRemote(false);
+  const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  setGasSyncTime('download',now);
+});
+
 document.getElementById('menu-btn').addEventListener('click',()=>{
   const cu=getCurrentUser();const cg=getCurrentGroup();
   document.getElementById('sheet-user-title').textContent=`${cg?cg.name+' / ':''}${cu.name}`;
@@ -2176,8 +2194,9 @@ document.getElementById('gas-settings-btn').addEventListener('click',()=>{
       <input id="gas-modal-url" type="url" placeholder="https://script.google.com/macros/s/..." value="${escHtml(currentUrl)}" style="width:100%;height:44px;border:1.5px solid var(--border2);border-radius:12px;padding:0 14px;font-family:inherit;font-size:13px;color:var(--text);background:white;outline:none;box-sizing:border-box;transition:border-color .2s;">
     </div>
     <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <button id="gas-modal-save" style="flex:1;height:44px;border-radius:12px;border:none;background:var(--blue);color:white;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">\ud83d\udcbe URL\u3092\u4fdd\u5b58\u30fb\u63a5\u7d9a</button>
-      <button id="gas-modal-clear" style="height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-family:inherit;font-size:13px;cursor:pointer;white-space:nowrap;">\u63a5\u7d9a\u89e3\u9664</button>
+      <button id="gas-modal-save" style="flex:2;min-width:0;height:44px;border-radius:12px;border:none;background:var(--blue);color:white;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:0 6px;">\ud83d\udcbe URL\u3092\u4fdd\u5b58\u30fb\u63a5\u7d9a</button>
+      <button id="gas-modal-clear" style="flex:1;min-width:0;height:44px;padding:0 6px;border-radius:12px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-family:inherit;font-size:12px;cursor:pointer;white-space:nowrap;">\u63a5\u7d9a\u89e3\u9664</button>
+      <button id="gas-modal-auto" style="flex:1;min-width:0;height:44px;padding:0 6px;border-radius:12px;border:1.5px solid var(--border2);background:var(--surface2);color:var(--text2);font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;">\u81ea\u52d5\u540c\u671f ON</button>
     </div>
     <details style="margin-bottom:8px;">
       <summary style="font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;padding:6px 0;display:flex;align-items:center;gap:6px;list-style:none;">\u25b6 \ud83d\udccb GAS\u30bb\u30c3\u30c8\u30a2\u30c3\u30d7\u624b\u9806\uff08\u521d\u56de\u306e\u307f\uff09</summary>
@@ -2198,6 +2217,20 @@ document.getElementById('gas-settings-btn').addEventListener('click',()=>{
     }
   }
   updateStatusDisplay();
+  function updateAutoSyncBtn(){
+    const btn=ov.querySelector('#gas-modal-auto');if(!btn)return;
+    const on=getAutoSync();
+    btn.textContent='自動同期 '+(on?'ON':'OFF');
+    btn.style.color=on?'var(--check)':'var(--text3)';
+    btn.style.borderColor=on?'var(--check)':'var(--border2)';
+  }
+  updateAutoSyncBtn();
+  ov.querySelector('#gas-modal-auto').addEventListener('click',()=>{
+    const next=!getAutoSync();
+    setAutoSync(next);
+    updateAutoSyncBtn();
+    showToast(next?'🔄 自動同期: ON（起動時・切替時に受信）':'⏸ 自動同期: OFF（手動のみ）');
+  });
   const urlInput=ov.querySelector('#gas-modal-url');
   urlInput.addEventListener('focus',()=>{urlInput.style.borderColor='var(--blue)';});
   urlInput.addEventListener('blur',()=>{urlInput.style.borderColor='var(--border2)';});
@@ -2553,50 +2586,6 @@ document.getElementById('deleted-groups-btn').addEventListener('click',()=>{
   ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
 });
 
-// ── 定期同期（30秒）──
-// 自動同期：UIを強制rerenderしない（ユーザー操作を妨げない）
-// 代わりに30秒ごとにリモートのデータをバックグラウンドでローカルにマージするだけ
-let _autoSyncTimer=null;
-function scheduleAutoSync(){
-  if(_autoSyncTimer)clearInterval(_autoSyncTimer);
-  _autoSyncTimer=setInterval(async()=>{
-    if(!getGasUrl())return;
-    // silent=true：画面rerenderなし、syncDotも変えない
-    const remote=await remoteLoad();if(!remote)return;
-    const local=getCache();
-    // 他ユーザーのデータだけ静かにマージ
-    let changed=false;
-    // 削除済みユーザーを先にマージして復活チェックに使う
-    const remoteDeleted=remote.deletedUsers||[];
-    const localDeleted=local.deletedUsers||[];
-    remoteDeleted.forEach(ru=>{if(!localDeleted.find(u=>u.id===ru.id)){localDeleted.push(ru);changed=true;}});
-    (remote.users||[]).forEach(ru=>{
-      // ローカルで削除済みのユーザーはスキップ（復活させない）
-      if(localDeleted.find(u=>u.id===ru.id))return;
-      const lu=local.users.find(u=>u.id===ru.id);
-      if(!lu){ru.habits=(ru.habits||[]).map(migrateHabit);ru.archive=(ru.archive||[]).map(migrateHabit);local.users.push(ru);changed=true;}
-      else{
-        const deletedKeys=lu.deletedHabitKeys||[];
-        (ru.habits||[]).forEach(rh=>{
-          const lh=lu.habits.find(h=>h.name===rh.name&&h.type===rh.type);
-          if(lh){Object.keys(rh.logs||{}).forEach(k=>{if(!(k in (lh.logs||{}))){lh.logs[k]=rh.logs[k];changed=true;}});}
-          else{
-            const rhKey=(rh.createdAt||'')+'::'+(rh.name||'');
-            if(!deletedKeys.includes(rhKey)){lu.habits.push(migrateHabit({...rh}));changed=true;}
-          }
-        });
-        // goal タイプのテキスト更新をリモートから反映
-        (ru.habits||[]).filter(rh=>rh.type==='goal').forEach(rh=>{
-          const lh=lu.habits.find(h=>h.type==='goal'&&h.createdAt===rh.createdAt);
-          if(lh&&rh.updatedAt&&(!lh.updatedAt||rh.updatedAt>lh.updatedAt)){lh.name=rh.name;lh.updatedAt=rh.updatedAt;changed=true;}
-        });
-      }
-    });
-    if(changed){local.deletedUsers=localDeleted;saveLocal(local);}
-  },30000);
-}
-scheduleAutoSync();
-
 // ── INIT ──
 (function(){
   const LAUNCHED_KEY='tsuzukeru_launched';
@@ -2630,7 +2619,13 @@ scheduleAutoSync();
   if(pinned&&all.users.find(u=>u.id===pinned)){
     // ピン有効 → そのままメイン画面へ
     all.currentUserId=pinned;setCache(all);
-    if(getGasUrl())syncFromRemote();
+    if(getGasUrl()&&getAutoSync()){
+      syncFromRemote(true).then(()=>{
+        const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+        setGasSyncTime('auto',now);
+      });
+    }
+    refreshGasStatus();
     showScreen('screen-list');renderGroupTabs();renderUserTabs();render();
   }else{
     // ピンなし or 無効 → Step2から誰かを選ばせる
