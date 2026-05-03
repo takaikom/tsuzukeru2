@@ -801,7 +801,7 @@ async function saveData(){
 }
 
 // ── SYNC ──
-// 同期対象：親ユーザー（pinnedUser）のみ。完全同期（リモートのデータで上書き）。
+// 同期対象：親ユーザーは完全同期、子ユーザーはローカル習慣のログのみマージ。
 async function syncFromRemote(silent=false){
   if(!getGasUrl()){setSyncDot('off');return;}
   if(!silent)setSyncDot('syncing');
@@ -830,8 +830,20 @@ async function syncFromRemote(silent=false){
       lu.archive=(ru.archive||[]).map(migrateHabit);
       if(ru.deletedHabitKeys)lu.deletedHabitKeys=ru.deletedHabitKeys;
       if(ru.name)lu.name=ru.name;
+    }else{
+      // 子ユーザー：ローカルにある習慣のログのみリモートとマージ
+      // 習慣の追加・削除・並び順はローカル優先。ログだけ双方向マージ（どちらかにあれば残す）
+      const remoteHabitMap=new Map((ru.habits||[]).map(rh=>[rh.name+'::'+rh.type,rh]));
+      (lu.habits||[]).forEach(lh=>{
+        const key=lh.name+'::'+(lh.type||'daily');
+        const rh=remoteHabitMap.get(key);
+        if(!rh)return; // リモートに対応習慣がなければスキップ
+        // ログをリモート→ローカルにマージ（ローカルにないキーだけ追加）
+        Object.keys(rh.logs||{}).forEach(k=>{
+          if(!(k in (lh.logs||{})))lh.logs[k]=rh.logs[k];
+        });
+      });
     }
-    // 親以外のユーザーはローカルを保持（上書きしない）
   });
 
   // グループ名をリモートから反映
