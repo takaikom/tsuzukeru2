@@ -49,7 +49,7 @@
   /* USER TABS */
   .user-tabs{display:flex;align-items:center;overflow-x:auto;padding:0 16px;scrollbar-width:none;border-top:1px solid var(--border);}
   .user-tabs::-webkit-scrollbar{display:none;}
-  .user-tab{flex-shrink:0;padding:8px 14px;font-size:13px;font-weight:500;color:var(--text3);border:none;background:transparent;cursor:grab;border-bottom:2.5px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s;-webkit-tap-highlight-color:transparent;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;user-select:none;touch-action:none;}
+  .user-tab{flex-shrink:0;padding:8px 14px;font-size:13px;font-weight:500;color:var(--text3);border:none;background:transparent;cursor:grab;border-bottom:2.5px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s;-webkit-tap-highlight-color:transparent;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;user-select:none;touch-action:pan-x;}
   .user-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
   .user-tab.is-me{}
   .user-tab.is-me.active{border-bottom-color:var(--accent);}
@@ -1165,6 +1165,7 @@ function renderUserTabs(){
     const tgtId=getTargetUid(x,y);
     if(ghost){ghost.remove();ghost=null;}
     tabs.querySelectorAll('.drag-dragging,.drag-over').forEach(el=>el.classList.remove('drag-dragging','drag-over'));
+    tabs.querySelectorAll('.user-tab').forEach(el=>el.style.touchAction='');
     document.body.style.cursor='';
     if(tgtId&&tgtId!==dragSrcId){
       const a=getCache();const users=a.users;
@@ -1178,6 +1179,7 @@ function renderUserTabs(){
 
   function startDragVisual(btn,x,y){
     isDragging=true;
+    tabs.querySelectorAll('.user-tab').forEach(el=>el.style.touchAction='none');
     const rect=btn.getBoundingClientRect();
     dragOffX=x-rect.left;dragOffY=y-rect.top;
     btn.classList.add('drag-dragging');
@@ -1233,6 +1235,7 @@ function renderUserTabs(){
       clearTimeout(longPressTimer);longPressTimer=null;
       if(ghost){ghost.remove();ghost=null;}
       tabs.querySelectorAll('.drag-dragging,.drag-over').forEach(el=>el.classList.remove('drag-dragging','drag-over'));
+      tabs.querySelectorAll('.user-tab').forEach(el=>el.style.touchAction='');
       isDragging=false;dragSrcId=null;
     },{passive:true});
 
