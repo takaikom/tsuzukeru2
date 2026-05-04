@@ -1858,44 +1858,48 @@ document.getElementById('setup-save-btn').addEventListener('click',async()=>{
   if(!url){showToast('❌ URLを入力してください');return;}
   const status=document.getElementById('setup-status');
   status.textContent='接続確認中…';setSyncDot('syncing');
-  try{
-    const data=await remoteLoad(url);setGasUrl(url);
-    if(data&&data.users){
-      const local=getCache();const merged={...data};
-      // グループ名をリモートから取得（groupNameフィールド）
-      if(data.groupName){
-        const groups=loadGroups();const id=getCurrentGroupId();
-        const g=groups.find(g=>g.id===id);
-        if(g&&data.groupName!==g.name){g.name=data.groupName;saveGroups(groups);}
-      }
-      // deletedUsersをマージ（ローカル＋リモート両方を保持）
-      const mergedDeleted=[...(local.deletedUsers||[])];
-      (data.deletedUsers||[]).forEach(ru=>{if(!mergedDeleted.find(u=>u.id===ru.id))mergedDeleted.push(ru);});
-      merged.deletedUsers=mergedDeleted;
-      // リモートから来たusersのうち削除済みのものを除外
-      merged.users=(merged.users||[]).filter(ru=>!mergedDeleted.find(u=>u.id===ru.id));
-      // ローカルにしかいないユーザーを追加（削除済みは除く）
-      local.users.forEach(lu=>{
-        if(!merged.users.find(ru=>ru.id===lu.id)&&!mergedDeleted.find(u=>u.id===lu.id))merged.users.push(lu);
-      });
-      merged.currentUserId=local.currentUserId;
-      if(!merged.users.find(u=>u.id===merged.currentUserId))merged.currentUserId=merged.users[0]?.id||'';
-      (merged.users||[]).forEach(u=>{u.habits=(u.habits||[]).map(migrateHabit);u.archive=(u.archive||[]).map(migrateHabit);});
-      setCache(merged);
-    }else{await remoteSave(getCache());}
-    setSyncDot('ok');status.textContent='✅ 接続成功！';refreshGasStatus();
-    // ピンが有効ならそのままリスト画面へ、無効なら誰かを選ばせる
-    const pinned=getPinnedUserId();const all=getCache();
-    if(pinned&&all.users.find(u=>u.id===pinned)){
-      all.currentUserId=pinned;setCache(all);
-      renderGroupTabs();renderUserTabs();render();
-      setTimeout(()=>showScreen('screen-list'),1200);
-    }else{
-      // ユーザー再選択へ
-      const cg=getCurrentGroup();
-      setTimeout(()=>{renderWelcomeStep2(cg||{id:getCurrentGroupId(),name:'グループ',gasUrl:url});showScreen('screen-welcome');},1200);
-    }
-  }catch{setSyncDot('err');status.textContent='❌ 接続できませんでした';}
+  // まず接続確認（remoteLoad は失敗時に null を返す、throw しない）
+  const data=await remoteLoad(url);
+  if(!data){
+    setSyncDot('err');
+    status.textContent='❌ 接続できませんでした（URLを確認してください）';
+    return;
+  }
+  // 接続成功 → URL を保存してデータをマージ
+  setGasUrl(url);
+  const local=getCache();const merged={...data};
+  // グループ名をリモートから取得（groupNameフィールド）
+  if(data.groupName){
+    const groups=loadGroups();const id=getCurrentGroupId();
+    const g=groups.find(g=>g.id===id);
+    if(g&&data.groupName!==g.name){g.name=data.groupName;saveGroups(groups);}
+  }
+  // deletedUsersをマージ（ローカル＋リモート両方を保持）
+  const mergedDeleted=[...(local.deletedUsers||[])];
+  (data.deletedUsers||[]).forEach(ru=>{if(!mergedDeleted.find(u=>u.id===ru.id))mergedDeleted.push(ru);});
+  merged.deletedUsers=mergedDeleted;
+  // リモートから来たusersのうち削除済みのものを除外
+  merged.users=(merged.users||[]).filter(ru=>!mergedDeleted.find(u=>u.id===ru.id));
+  // ローカルにしかいないユーザーを追加（削除済みは除く）
+  local.users.forEach(lu=>{
+    if(!merged.users.find(ru=>ru.id===lu.id)&&!mergedDeleted.find(u=>u.id===lu.id))merged.users.push(lu);
+  });
+  merged.currentUserId=local.currentUserId;
+  if(!merged.users.find(u=>u.id===merged.currentUserId))merged.currentUserId=merged.users[0]?.id||'';
+  (merged.users||[]).forEach(u=>{u.habits=(u.habits||[]).map(migrateHabit);u.archive=(u.archive||[]).map(migrateHabit);});
+  setCache(merged);
+  setSyncDot('ok');status.textContent='✅ 接続成功！';refreshGasStatus();
+  // ピンが有効ならそのままリスト画面へ、無効なら誰かを選ばせる
+  const pinned=getPinnedUserId();const all=getCache();
+  if(pinned&&all.users.find(u=>u.id===pinned)){
+    all.currentUserId=pinned;setCache(all);
+    renderGroupTabs();renderUserTabs();render();
+    setTimeout(()=>showScreen('screen-list'),1200);
+  }else{
+    // ユーザー再選択へ
+    const cg=getCurrentGroup();
+    setTimeout(()=>{renderWelcomeStep2(cg||{id:getCurrentGroupId(),name:'グループ',gasUrl:url});showScreen('screen-welcome');},1200);
+  }
 });
 document.getElementById('setup-clear-btn').addEventListener('click',()=>{
   const ov=document.createElement('div');
