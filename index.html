@@ -618,6 +618,10 @@
       <div class="btn-icon" style="background:var(--blue-light);">🔗</div>
       <div><div>GAS連携を設定</div><div class="btn-desc" id="gas-settings-desc">クラウド共有URLを設定・変更</div></div>
     </button>
+    <button class="sheet-btn" id="gas-overwrite-btn" style="display:none;">
+      <div class="btn-icon" style="background:var(--red-light,#FFEAEA);">☁️</div>
+      <div><div>サーバーを完全上書き</div><div class="btn-desc">このデバイスのデータでサーバーを完全に置き換え</div></div>
+    </button>
     <hr class="sheet-divider">
     <button class="sheet-btn" id="archive-btn">
       <div class="btn-icon archive">🗂️</div>
@@ -1908,15 +1912,76 @@ document.getElementById('setup-clear-btn').addEventListener('click',()=>{
 // ── MENU ──
 const overlay=document.getElementById('sheet-overlay');
 // ── ヘッダー GAS↑（アップロード）──
+// 方針：
+//   - まずサーバーの最新データを取得し、他メンバーのデータを保護した上でマージ送信
+//   - 親ユーザー → 設定含む自分のフルデータ（習慣・ログ・deletedHabitKeys・名前）をサーバーへ反映
+//   - 子ユーザー → 習慣のログデータのみ反映、習慣構成・設定はサーバー側を維持
+//   - サーバーにいて自分のデバイスにいない他メンバーは削除しない
 document.getElementById('gas-upload-btn').addEventListener('click',async()=>{
   if(!getGasUrl()){showToast('⚠ GAS URLが設定されていません');return;}
   setSyncDot('syncing');
-  const local=getCache();const cg=getCurrentGroup();
-  const ok=await remoteSave(cg?{...local,groupName:cg.name}:local);
+
+  // 1. サーバーの最新データを取得
+  const remote=await remoteLoad();
+  const local=getCache();
+  const cg=getCurrentGroup();
+  const pinnedId=getPinnedUserId();
+  const myUser=local.users.find(u=>u.id===pinnedId)||getCurrentUser();
+  const isChild=myUser.id!==pinnedId||!pinnedId;
+
+  // 2. サーバーデータをベースに、自分のデータだけ上書きしたペイロードを作成
+  let baseUsers;
+  if(remote&&remote.users){
+    baseUsers=remote.users.map(ru=>{
+      if(ru.id===myUser.id){
+        if(isChild){
+          // 子ユーザー：習慣のログのみ上書き（サーバー側の習慣構成を維持しつつログをマージ）
+          const myHabitMap=new Map((myUser.habits||[]).map(h=>[h.name+'::'+(h.type||'daily'),h]));
+          const updatedHabits=(ru.habits||[]).map(rh=>{
+            const key=rh.name+'::'+(rh.type||'daily');
+            const lh=myHabitMap.get(key);
+            if(!lh)return rh;
+            // ログをローカル→サーバーにマージ（どちらかにあれば残す）
+            const mergedLogs=Object.assign({},rh.logs||{},lh.logs||{});
+            return{...rh,logs:mergedLogs};
+          });
+          return{...ru,habits:updatedHabits};
+        }else{
+          // 親ユーザー：設定含む全データを上書き
+          return{...myUser};
+        }
+      }
+      // 他メンバー：サーバー側データをそのまま維持
+      return ru;
+    });
+    // サーバーにいないが自分のデバイスにいるメンバーは追加（新規追加メンバー）
+    local.users.forEach(lu=>{
+      if(!baseUsers.find(u=>u.id===lu.id))baseUsers.push(lu);
+    });
+  }else{
+    // サーバーにデータがない場合（初回アップロード）はローカル全体を送信
+    baseUsers=local.users;
+  }
+
+  // 3. deletedUsersをマージ（サーバー側とローカル側の両方を保持）
+  const remoteDeleted=remote&&remote.deletedUsers?remote.deletedUsers:[];
+  const localDeleted=local.deletedUsers||[];
+  const mergedDeleted=[...remoteDeleted];
+  localDeleted.forEach(lu=>{if(!mergedDeleted.find(u=>u.id===lu.id))mergedDeleted.push(lu);});
+  // deletedUsersに含まれるユーザーはbaseUsersから除外
+  const filteredUsers=baseUsers.filter(u=>!mergedDeleted.find(d=>d.id===u.id));
+
+  const payload={
+    users:filteredUsers,
+    deletedUsers:mergedDeleted,
+    groupName:cg?cg.name:(remote&&remote.groupName?remote.groupName:'')
+  };
+
+  const ok=await remoteSave(payload);
   if(ok){
     const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
     setGasSyncTime('upload',now);
-    showToast('☁️ GASへ送信しました');
+    showToast(isChild?'☁️ 習慣ログをサーバーへ送信しました':'☁️ GASへ送信しました');
   }else showToast('⚠ 送信に失敗しました');
 });
 
@@ -1927,6 +1992,103 @@ document.getElementById('gas-download-btn').addEventListener('click',async()=>{
   const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
   setGasSyncTime('download',now);
 });
+
+// ── メニュー：サーバーを完全上書き ──
+// ════════════════════════════════════════
+document.getElementById('gas-overwrite-btn').addEventListener('click',()=>{
+  // シートを閉じる
+  overlay.classList.remove('open');
+
+  if(!getGasUrl()){showToast('⚠ GAS URLが設定されていません');return;}
+  const local=getCache();
+  const cg=getCurrentGroup();
+  const pinnedId=getPinnedUserId();
+  const myUser=local.users.find(u=>u.id===pinnedId)||getCurrentUser();
+
+  // 親ユーザー（ピンされたユーザー）のみ対象
+  if(myUser.id!==pinnedId||!pinnedId){
+    showToast('⚠ 完全上書きは親ユーザーのみ実行できます');
+    return;
+  }
+
+  const habitCount=(myUser.habits||[]).length;
+  const logCount=(myUser.habits||[]).reduce((s,h)=>s+Object.keys(h.logs||{}).length,0);
+  const deletedHabitCount=(myUser.deletedHabitKeys||[]).length;
+
+  // 確認ダイアログ：自分（親ユーザー）のデータ内容を明示
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:flex-end;justify-content:center;';
+
+  ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;animation:slideUp .22s cubic-bezier(.22,1,.36,1);">
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px;">☁️ サーバーを完全上書き</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">対象：あなた（親ユーザー）のデータのみ。他のメンバーはサーバー側のデータを維持します。</div>
+    <div style="font-size:12px;color:var(--red,#E24B4A);margin-bottom:14px;">⚠️ サーバー上のあなたのデータ（習慣・ログ・削除済み習慣情報を含む）をこのデバイスのデータで完全に置き換えます。</div>
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">送信されるあなたのデータ</div>
+    <div style="background:var(--surface2);border-radius:10px;padding:10px 12px;margin-bottom:4px;">
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px;">👤 ${myUser.name}（あなた）</div>
+      <div style="display:flex;gap:12px;font-size:12px;color:var(--text2);">
+        <span>習慣 ${habitCount}件</span>
+        <span>ログ ${logCount}件</span>
+        ${deletedHabitCount>0?`<span style="color:var(--red,#E24B4A);">削除済み習慣キー ${deletedHabitCount}件</span>`:''}
+      </div>
+    </div>
+    <div style="margin-top:8px;padding:8px 10px;background:var(--blue-light);border-radius:8px;font-size:12px;color:var(--blue);">
+      ℹ️ 他のメンバーのデータはサーバー側を維持します
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button id="_gow-cancel" style="flex:1;height:44px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:14px;cursor:pointer;">キャンセル</button>
+      <button id="_gow-confirm" style="flex:1;height:44px;border-radius:12px;border:none;background:var(--red,#E24B4A);color:white;font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">完全上書きする</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+
+  ov.querySelector('#_gow-cancel').addEventListener('click',()=>ov.remove());
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+
+  ov.querySelector('#_gow-confirm').addEventListener('click',async()=>{
+    ov.remove();
+    setSyncDot('syncing');
+
+    // サーバーの最新データを取得して他メンバーを保護しつつ自分だけ完全置き換え
+    const remote=await remoteLoad();
+    let baseUsers;
+    if(remote&&remote.users){
+      baseUsers=remote.users.map(ru=>{
+        if(ru.id===myUser.id){
+          // 自分のユーザーは習慣・ログ含め完全置き換え
+          return{...myUser};
+        }
+        return ru; // 他メンバーはサーバー側を維持
+      });
+      // サーバーにない自分のユーザーは追加
+      if(!baseUsers.find(u=>u.id===myUser.id))baseUsers.push({...myUser});
+    }else{
+      // サーバーにデータがなければ自分だけ送信
+      baseUsers=[{...myUser}];
+    }
+
+    // deletedUsersはこのデバイスのものを正とし、サーバー側にしかなかったものは捨てる
+    const localDeleted=local.deletedUsers||[];
+    const mergedDeleted=localDeleted.slice();
+    // フィルタ：deletedUsersに含まれるユーザーをbaseUsersから除外
+    const filteredUsers=baseUsers.filter(u=>!mergedDeleted.find(d=>d.id===u.id));
+
+    const payload={
+      users:filteredUsers,
+      deletedUsers:mergedDeleted,
+      groupName:cg?cg.name:(remote&&remote.groupName?remote.groupName:'')
+    };
+    const ok=await remoteSave(payload);
+    if(ok){
+      const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      setGasSyncTime('upload',now);
+      showToast('☁️ あなたのデータをサーバーに完全上書きしました');
+    }else{
+      showToast('⚠ 送信に失敗しました');
+    }
+  });
+});
+// ════════════════════════════════════════
 
 document.getElementById('menu-btn').addEventListener('click',()=>{
   const cu=getCurrentUser();const cg=getCurrentGroup();
@@ -1954,6 +2116,13 @@ document.getElementById('menu-btn').addEventListener('click',()=>{
   // GAS連携ボタンのdesc更新
   const gasDescEl=document.getElementById('gas-settings-desc');
   if(gasDescEl){const gurl=getGasUrl();gasDescEl.textContent=gurl?'🔗 設定済み（タップして変更）':'未設定（タップして設定）';}
+  // 完全上書きボタン：GAS設定済み＆親ユーザーのみ表示
+  const overwriteBtn=document.getElementById('gas-overwrite-btn');
+  if(overwriteBtn){
+    const _pinnedId=getPinnedUserId();const _local=getCache();
+    const _myUser=_local.users.find(u=>u.id===_pinnedId)||getCurrentUser();
+    overwriteBtn.style.display=(getGasUrl()&&_myUser.id===_pinnedId&&!!_pinnedId)?'':'none';
+  }
   // copy-user-label更新
   const cuLbl=document.getElementById('copy-user-label');
   if(cuLbl){const cu2=getCurrentUser();cuLbl.textContent=`「${cu2.name}」をコピーして別ユーザーを作成`;}
@@ -2569,35 +2738,43 @@ document.getElementById('delete-group-btn').addEventListener('click',()=>{
 // ── 削除したグループ一覧・復元 ──
 document.getElementById('deleted-groups-btn').addEventListener('click',()=>{
   overlay.classList.remove('open');
-  const deleted=loadDeletedGroups();
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:250;display:flex;align-items:flex-end;justify-content:center;';
-  const listHtml=deleted.length
-    ? deleted.map((g,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);margin-bottom:8px;">
-        <div style="flex:1;"><div style="font-size:14px;font-weight:500;">${escHtml(g.name)}</div><div style="font-size:11px;color:var(--text3);">削除日：${g.deletedAt||'不明'}${g.gasUrl?' 🔗 共有あり':''}</div></div>
-        <button data-idx="${i}" class="rg-btn" style="padding:6px 12px;border-radius:8px;border:1px solid var(--blue);background:var(--blue-light);color:var(--blue);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;flex-shrink:0;">復元</button>
-        <button data-idx="${i}" class="pg-btn" style="padding:6px 12px;border-radius:8px;border:1px solid #E24B4A;background:var(--red-light);color:#E24B4A;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;flex-shrink:0;">完全削除</button>
-      </div>`).join('')
-    : '<div style="text-align:center;padding:20px;color:var(--text3);font-size:14px;">一時削除されたグループはありません</div>';
-  ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;max-height:80vh;overflow-y:auto;animation:slideUp .24s cubic-bezier(.22,1,.36,1);">
-    <div style="font-size:15px;font-weight:700;margin-bottom:16px;">削除したグループ</div>
-    ${listHtml}
-    <button id="dgg-close" style="width:100%;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;margin-top:4px;">閉じる</button>
-  </div>`;
+  const sheet=document.createElement('div');
+  sheet.style.cssText='background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;max-height:80vh;overflow-y:auto;animation:slideUp .24s cubic-bezier(.22,1,.36,1);';
+  ov.appendChild(sheet);
   document.body.appendChild(ov);
-  ov.querySelectorAll('.rg-btn').forEach(btn=>btn.addEventListener('click',()=>{
-    const idx=parseInt(btn.dataset.idx);const dg=loadDeletedGroups();
-    const g=dg.splice(idx,1)[0];delete g.deletedAt;
-    const groups=loadGroups();groups.push(g);saveGroups(groups);saveDeletedGroups(dg);
-    ov.remove();renderGroupTabs();showToast('✅「'+g.name+'」を復元しました');
-  }));
-  ov.querySelectorAll('.pg-btn').forEach(btn=>btn.addEventListener('click',()=>{
-    const idx=parseInt(btn.dataset.idx);const dg=loadDeletedGroups();
-    const g=dg.splice(idx,1)[0];saveDeletedGroups(dg);
-    localStorage.removeItem(LOCAL_KEY+'_'+g.id);
-    ov.remove();showToast('「'+g.name+'」を完全削除しました');
-  }));
-  ov.querySelector('#dgg-close').addEventListener('click',()=>ov.remove());
+
+  function renderDeletedGroupList(){
+    const deleted=loadDeletedGroups();
+    const listHtml=deleted.length
+      ? deleted.map((g,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);margin-bottom:8px;">
+          <div style="flex:1;"><div style="font-size:14px;font-weight:500;">${escHtml(g.name)}</div><div style="font-size:11px;color:var(--text3);">削除日：${g.deletedAt||'不明'}${g.gasUrl?' 🔗 共有あり':''}</div></div>
+          <button data-idx="${i}" class="rg-btn" style="padding:6px 12px;border-radius:8px;border:1px solid var(--blue);background:var(--blue-light);color:var(--blue);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;flex-shrink:0;">復元</button>
+          <button data-idx="${i}" class="pg-btn" style="padding:6px 12px;border-radius:8px;border:1px solid #E24B4A;background:var(--red-light);color:#E24B4A;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;flex-shrink:0;">完全削除</button>
+        </div>`).join('')
+      : '<div style="text-align:center;padding:20px;color:var(--text3);font-size:14px;">一時削除されたグループはありません</div>';
+    sheet.innerHTML=`<div style="font-size:15px;font-weight:700;margin-bottom:16px;">削除したグループ</div>
+      ${listHtml}
+      <button id="dgg-close" style="width:100%;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;margin-top:4px;">閉じる</button>`;
+    sheet.querySelectorAll('.rg-btn').forEach(btn=>btn.addEventListener('click',()=>{
+      const idx=parseInt(btn.dataset.idx);const dg=loadDeletedGroups();
+      const g=dg.splice(idx,1)[0];delete g.deletedAt;
+      const groups=loadGroups();groups.push(g);saveGroups(groups);saveDeletedGroups(dg);
+      renderGroupTabs();showToast('✅「'+g.name+'」を復元しました');
+      renderDeletedGroupList();
+    }));
+    sheet.querySelectorAll('.pg-btn').forEach(btn=>btn.addEventListener('click',()=>{
+      const idx=parseInt(btn.dataset.idx);const dg=loadDeletedGroups();
+      const g=dg.splice(idx,1)[0];saveDeletedGroups(dg);
+      localStorage.removeItem(LOCAL_KEY+'_'+g.id);
+      showToast('「'+g.name+'」を完全削除しました');
+      renderDeletedGroupList();
+    }));
+    sheet.querySelector('#dgg-close').addEventListener('click',()=>ov.remove());
+  }
+
+  renderDeletedGroupList();
   ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
 });
 
