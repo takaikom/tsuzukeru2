@@ -113,7 +113,8 @@
   .type-tag.quit{color:var(--red);background:var(--red-light);}
 
   /* Card bottom row */
-  .card-bottom{display:flex;align-items:center;gap:8px;margin-top:7px;padding-left:36px;flex-wrap:wrap;}
+  .card-bottom{display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:nowrap;overflow:hidden;}
+  .card-bottom-indent{display:flex;align-items:center;gap:8px;flex:1;overflow:hidden;flex-wrap:nowrap;}
   .streak-badge{font-size:11px;font-family:'DM Mono',monospace;font-weight:500;padding:2px 7px;border-radius:99px;background:var(--amber-light);color:var(--amber);}
   .streak-badge.high{background:var(--accent-light);color:var(--accent-dark);}
   .streak-badge.done-today{background:var(--green-light);color:var(--green);}
@@ -155,12 +156,15 @@
   .act-btn.del:active{background:#FCEBEB;color:#E24B4A;}
   .act-btn.edit:active{background:var(--amber-light);color:var(--amber);}
   .act-btn.cal:active{background:var(--accent-light);}
+  .act-btn.link-open{width:22px;height:22px;border-radius:5px;font-size:11px;}
+  .act-btn.link-open:active{background:var(--blue-light);}
 
   /* Inline rename */
   .rename-form{flex-direction:column;gap:8px;margin-top:8px;}
 
   /* DRAG */
   .drag-handle{width:20px;height:36px;display:flex;align-items:center;justify-content:center;cursor:grab;color:var(--text3);font-size:16px;flex-shrink:0;touch-action:none;user-select:none;-webkit-user-select:none;}
+  .card-left-col{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;width:20px;}
   .drag-handle:active{cursor:grabbing;}
   .habit-card.dragging{opacity:.35;pointer-events:none;}
   .habit-card.drag-over-top{border-top:2.5px solid var(--accent);}
@@ -535,17 +539,7 @@
   </div>
 </div>
 
-<!-- ARCHIVE SCREEN -->
-<div class="screen" id="screen-archive">
-  <div class="cal-header">
-    <div class="cal-header-top">
-      <button class="back-btn" id="archive-back-btn">←</button>
-      <div class="cal-habit-name" id="archive-title">削除した習慣</div>
-    </div>
-    <div class="cal-edit-hint">タップして習慣リストに復元できます</div>
-  </div>
-  <div class="cal-body"><div id="archive-list"></div></div>
-</div>
+<!-- ARCHIVE SCREEN - removed; now shown as bottom sheet like deleted users/groups -->
 
 <!-- SYNC SETUP SCREEN -->
 <div class="screen" id="screen-setup">
@@ -820,8 +814,25 @@ function setParentMode(v){localStorage.setItem(PARENT_KEY+'_'+getCurrentGroupId(
 // ── SYNC ──
 const GAS_SYNC_TIME_KEY='tsuzukeru_gas_sync_time';
 const GAS_AUTO_SYNC_KEY='tsuzukeru_gas_auto_sync';
+const GAS_AUTO_SYNC_INTERVAL_KEY='tsuzukeru_gas_auto_sync_interval'; // 分単位、0=無効
 function getAutoSync(){return localStorage.getItem(GAS_AUTO_SYNC_KEY)!=='0';}
 function setAutoSync(v){localStorage.setItem(GAS_AUTO_SYNC_KEY,v?'1':'0');refreshGasStatus();}
+function getAutoSyncInterval(){const v=parseFloat(localStorage.getItem(GAS_AUTO_SYNC_INTERVAL_KEY)||'0');return isNaN(v)?0:v;}
+function setAutoSyncInterval(min){localStorage.setItem(GAS_AUTO_SYNC_INTERVAL_KEY,String(min));startPeriodicSync();}
+
+// ── 定期自動同期タイマー ──
+let _periodicSyncTimer=null;
+function startPeriodicSync(){
+  if(_periodicSyncTimer){clearInterval(_periodicSyncTimer);_periodicSyncTimer=null;}
+  const min=getAutoSyncInterval();
+  if(!min||min<=0||!getGasUrl()||!getAutoSync())return;
+  _periodicSyncTimer=setInterval(async()=>{
+    if(!getGasUrl()||!getAutoSync())return;
+    await syncFromRemote(true);
+    const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    setGasSyncTime('auto',now);
+  },min*60*1000);
+}
 function getGasSyncTime(){try{return JSON.parse(localStorage.getItem(GAS_SYNC_TIME_KEY)||'null');}catch{return null;}}
 function setGasSyncTime(type,dt){
   const cur=getGasSyncTime()||{};
@@ -1787,11 +1798,15 @@ function render(){
         </div>
       </div>
       <div class="card-bottom">
-        ${streakHtml}
-        <div class="dot-row">${dots}</div>
-        <span style="font-size:10px;color:var(--text3);">7日</span>
-        ${milestone?`<span class="milestone">${milestone}</span>`:''}
-        ${(habit.links&&habit.links.filter(l=>l).length)?`<button class="act-btn link-open" data-idx="${idx}" title="リンクを開く" style="margin-left:auto;flex-shrink:0;">🔗</button>`:''}
+        <div style="width:20px;flex-shrink:0;display:flex;justify-content:center;">
+          ${(habit.links&&habit.links.filter(l=>l).length)?`<button class="act-btn link-open" data-idx="${idx}" title="リンクを開く">🔗</button>`:''}
+        </div>
+        <div class="card-bottom-indent">
+          ${streakHtml}
+          <div class="dot-row">${dots}</div>
+          <span style="font-size:10px;color:var(--text3);">7日</span>
+          ${milestone?`<span class="milestone">${milestone}</span>`:''}
+        </div>
       </div>
       ${(habit.showMemo&&habit.memo)?'<div class="card-memo">'+renderMemoHtml(habit.memo)+'</div>':''}
       `;
@@ -2005,27 +2020,60 @@ async function addHabit(){
 document.getElementById('add-btn').addEventListener('click',addHabit);
 document.getElementById('add-input').addEventListener('keydown',e=>{if(e.key==='Enter')addHabit();});
 
-// ── ARCHIVE ──
-function renderArchive(){
-  const {archive}=getUserData();const cu=getCurrentUser();
-  document.getElementById('archive-title').textContent=`${cu.name}の削除した習慣`;
-  const list=document.getElementById('archive-list');
-  if(!archive.length){list.innerHTML=`<div class="archive-empty">削除した習慣はありません</div>`;return;}
-  list.innerHTML='';
-  archive.forEach((habit,idx)=>{
-    const tl=TYPE_LABEL[habit.type||'daily'];
-    const card=document.createElement('div');card.className='archive-card';
-    card.innerHTML=`<div class="archive-info"><div class="archive-name">${escHtml(habit.name)} <span style="font-size:11px;color:var(--text3);">[${tl}]</span></div><div class="archive-meta">累計${getTotalDays(habit)}回 · 削除日: ${habit.deletedAt||'不明'}</div></div><button class="restore-btn" data-idx="${idx}">復元</button>`;
-    list.appendChild(card);
-  });
-  list.querySelectorAll('.restore-btn').forEach(btn=>btn.addEventListener('click',async()=>{
-    const idx=parseInt(btn.dataset.idx);const a=getCache();
-    const u=a.users.find(u=>u.id===a.currentUserId);
-    const h=u.archive[idx];delete h.deletedAt;u.habits.push(h);u.archive.splice(idx,1);
-    setCache(a);renderArchive();await saveData();showToast(`✅「${h.name}」を復元しました`);
-  }));
+// ── ARCHIVE (ボトムシート) ──
+function openArchiveSheet(){
+  overlay.classList.remove('open');
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:250;display:flex;align-items:flex-end;justify-content:center;';
+  const sheet=document.createElement('div');
+  sheet.style.cssText='background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:80vh;display:flex;flex-direction:column;animation:slideUp .24s cubic-bezier(.22,1,.36,1);overflow:hidden;';
+  ov.appendChild(sheet);
+  document.body.appendChild(ov);
+
+  function renderArchive(){
+    const {archive}=getUserData();const cu=getCurrentUser();
+    const listHtml=archive.length
+      ? archive.map((habit,idx)=>{
+          const tl=TYPE_LABEL[habit.type||'daily'];
+          return`<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);margin-bottom:8px;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(habit.name)} <span style="font-size:11px;color:var(--text3);">[${tl}]</span></div>
+              <div style="font-size:11px;color:var(--text3);">累計${getTotalDays(habit)}回・削除日: ${habit.deletedAt||'不明'}</div>
+            </div>
+            <button data-idx="${idx}" class="ah-restore-btn" style="padding:6px 12px;border-radius:8px;border:1px solid var(--blue);background:var(--blue-light);color:var(--blue);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;flex-shrink:0;">復元</button>
+            <button data-idx="${idx}" class="ah-hard-btn" style="padding:6px 12px;border-radius:8px;border:1px solid #E24B4A;background:var(--red-light);color:#E24B4A;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;flex-shrink:0;">完全削除</button>
+          </div>`;
+        }).join('')
+      : '<div style="text-align:center;padding:20px;color:var(--text3);font-size:14px;">削除した習慣はありません</div>';
+    sheet.innerHTML=`
+      <div style="padding:20px 20px 12px;flex-shrink:0;">
+        <div style="font-size:15px;font-weight:700;">${escHtml(cu.name)}の削除した習慣</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px;">復元または完全削除できます</div>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:0 20px 8px;">${listHtml}</div>
+      <div style="flex-shrink:0;padding:8px 20px calc(12px + env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--border);">
+        <button id="ah-close" style="width:100%;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;">閉じる</button>
+      </div>`;
+    sheet.querySelectorAll('.ah-restore-btn').forEach(btn=>btn.addEventListener('click',async()=>{
+      const idx=parseInt(btn.dataset.idx);const a=getCache();
+      const u=a.users.find(u=>u.id===a.currentUserId);
+      const h=u.archive[idx];delete h.deletedAt;u.habits.push(h);u.archive.splice(idx,1);
+      setCache(a);render();await saveData();showToast(`✅「${h.name}」を復元しました`);
+      renderArchive();
+    }));
+    sheet.querySelectorAll('.ah-hard-btn').forEach(btn=>btn.addEventListener('click',async()=>{
+      const idx=parseInt(btn.dataset.idx);const a=getCache();
+      const u=a.users.find(u=>u.id===a.currentUserId);
+      const h=u.archive[idx];u.archive.splice(idx,1);
+      setCache(a);await saveData();showToast(`🗑「${h.name}」を完全削除しました`);
+      renderArchive();
+    }));
+    sheet.querySelector('#ah-close').addEventListener('click',()=>ov.remove());
+  }
+
+  renderArchive();
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
 }
-document.getElementById('archive-back-btn').addEventListener('click',()=>{showScreen('screen-list');render();});
 
 // ── FORCE SYNC（リモートから取得）──
 // ── PULL-TO-REFRESH ──
@@ -2634,6 +2682,11 @@ document.getElementById('gas-settings-btn').addEventListener('click',()=>{
       <button id="gas-modal-clear" style="flex:1;min-width:0;height:44px;padding:0 6px;border-radius:12px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-family:inherit;font-size:12px;cursor:pointer;white-space:nowrap;">\u63a5\u7d9a\u89e3\u9664</button>
       <button id="gas-modal-auto" style="flex:1;min-width:0;height:44px;padding:0 6px;border-radius:12px;border:1.5px solid var(--border2);background:var(--surface2);color:var(--text2);font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;">\u81ea\u52d5\u540c\u671f ON</button>
     </div>
+    <div id="gas-modal-interval-row" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 12px;background:var(--surface2);border-radius:10px;">
+      <span style="font-size:12px;color:var(--text2);flex-shrink:0;">\u5b9a\u671f\u81ea\u52d5\u540c\u671f\u306e\u9593\u9694:</span>
+      <input id="gas-modal-interval" type="number" min="0" step="0.5" placeholder="0" style="width:72px;height:34px;border:1.5px solid var(--border2);border-radius:8px;padding:0 8px;font-family:inherit;font-size:14px;color:var(--text);background:white;outline:none;text-align:center;">
+      <span style="font-size:12px;color:var(--text2);flex-shrink:0;">\u5206\uff080\u3067\u7121\u52b9\uff09</span>
+    </div>
     <details style="margin-bottom:8px;">
       <summary style="font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;padding:6px 0;display:flex;align-items:center;gap:6px;list-style:none;">\u25b6 \ud83d\udccb GAS\u30bb\u30c3\u30c8\u30a2\u30c3\u30d7\u624b\u9806\uff08\u521d\u56de\u306e\u307f\uff09</summary>
       <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">
@@ -2653,17 +2706,40 @@ document.getElementById('gas-settings-btn').addEventListener('click',()=>{
     }
   }
   updateStatusDisplay();
+  // interval 入力フィールドの初期値セット
+  const intervalInp=ov.querySelector('#gas-modal-interval');
+  const _curMin=getAutoSyncInterval();
+  intervalInp.value=_curMin>0?String(_curMin):'';
+  function applyInterval(){
+    const raw=intervalInp.value.trim();
+    const min=raw===''?0:parseFloat(raw);
+    if(isNaN(min)||min<0){showToast('❌ 0以上の数値を入力してください');intervalInp.value=getAutoSyncInterval()||'';return;}
+    setAutoSyncInterval(min);
+    if(min>0){
+      const sec=min*60;
+      const label=sec<60?sec+'秒':min>=60?(min/60)+'時間':min+'分';
+      showToast('🔄 '+label+'ごとに自動同期します');
+    }else{
+      showToast('⏸ 定期自動同期を無効にしました');
+    }
+  }
+  intervalInp.addEventListener('change',applyInterval);
+  intervalInp.addEventListener('keydown',e=>{if(e.key==='Enter'){intervalInp.blur();}});
   function updateAutoSyncBtn(){
     const btn=ov.querySelector('#gas-modal-auto');if(!btn)return;
     const on=getAutoSync();
     btn.textContent='自動同期 '+(on?'ON':'OFF');
     btn.style.color=on?'var(--check)':'var(--text3)';
     btn.style.borderColor=on?'var(--check)':'var(--border2)';
+    // 自動同期OFFのときは定期同期欄をグレーアウト
+    const row=ov.querySelector('#gas-modal-interval-row');
+    if(row){row.style.opacity=on?'1':'0.4';intervalInp.disabled=!on;}
   }
   updateAutoSyncBtn();
   ov.querySelector('#gas-modal-auto').addEventListener('click',()=>{
     const next=!getAutoSync();
     setAutoSync(next);
+    if(next)startPeriodicSync();else{if(_periodicSyncTimer){clearInterval(_periodicSyncTimer);_periodicSyncTimer=null;}}
     updateAutoSyncBtn();
     showToast(next?'🔄 自動同期: ON（起動時・切替時に受信）':'⏸ 自動同期: OFF（手動のみ）');
   });
@@ -2678,6 +2754,7 @@ document.getElementById('gas-settings-btn').addEventListener('click',()=>{
     updateStatusDisplay();
     showToast('\ud83d\udd17 GAS\u306b\u63a5\u7d9a\u3057\u3066\u3044\u307e\u3059\u2026');
     await syncFromRemote();
+    startPeriodicSync();
     updateStatusDisplay();
     showToast('\u2705 \u63a5\u7d9a\u30fb\u540c\u671f\u3057\u307e\u3057\u305f');
   });
@@ -2685,13 +2762,14 @@ document.getElementById('gas-settings-btn').addEventListener('click',()=>{
     if(!getGasUrl()){showToast('\u672a\u8a2d\u5b9a\u3067\u3059');return;}
     if(!confirm('\u63a5\u7d9a\u3092\u89e3\u9664\u3057\u307e\u3059\u304b\uff1f\n\u30ed\u30fc\u30ab\u30eb\u306e\u30c7\u30fc\u30bf\u306f\u4fdd\u6301\u3055\u308c\u307e\u3059\u3002'))return;
     clearGasUrl();setSyncDot('off');urlInput.value='';updateStatusDisplay();
+    if(_periodicSyncTimer){clearInterval(_periodicSyncTimer);_periodicSyncTimer=null;}
     showToast('\u63a5\u7d9a\u3092\u89e3\u9664\u3057\u307e\u3057\u305f');
   });
   ov.querySelector('#gas-modal-close').addEventListener('click',()=>ov.remove());
   ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
 });
 
-document.getElementById('archive-btn').addEventListener('click',()=>{overlay.classList.remove('open');renderArchive();showScreen('screen-archive');});
+document.getElementById('archive-btn').addEventListener('click',()=>openArchiveSheet());
 document.getElementById('analytics-btn').addEventListener('click',()=>{overlay.classList.remove('open');openAnalytics();});
 
 // ── ANALYTICS ──
@@ -3356,7 +3434,7 @@ document.getElementById('deleted-groups-btn').addEventListener('click',()=>{
         setGasSyncTime('auto',now);
       });
     }
-    refreshGasStatus();
+    refreshGasStatus();startPeriodicSync();
     showScreen('screen-list');renderGroupTabs();renderUserTabs();render();
   }else{
     // ピンなし or 無効 → Step2から誰かを選ばせる
