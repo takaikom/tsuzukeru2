@@ -731,10 +731,7 @@
       <div class="btn-icon" style="background:var(--blue-light);">🔗</div>
       <div><div>GAS連携を設定</div><div class="btn-desc" id="gas-settings-desc">クラウド共有URLを設定・変更</div></div>
     </button>
-    <button class="sheet-btn" id="gas-overwrite-btn" style="display:none;">
-      <div class="btn-icon" style="background:var(--red-light,#FFEAEA);">☁️</div>
-      <div><div>サーバーを完全上書き</div><div class="btn-desc">このデバイスのデータでサーバーを完全に置き換え</div></div>
-    </button>
+
     <hr class="sheet-divider">
     <button class="sheet-btn" id="archive-btn">
       <div class="btn-icon archive">🗂️</div>
@@ -760,6 +757,10 @@
       <div class="btn-icon import">📥</div>
       <div><div>インポート</div><div class="btn-desc">バックアップファイルからデータを復元</div></div>
     </button>
+    <a href="https://drive.google.com/file/d/1-xJMXNnphmbzKIOidArlGt__Y8MqYXH9/view?usp=sharing" target="_blank" rel="noopener" class="sheet-btn" style="text-decoration:none;">
+      <div class="btn-icon" style="background:var(--green-light);">📖</div>
+      <div><div>つづける_使い方ガイド</div><div class="btn-desc">操作マニュアルを開く（外部リンク）</div></div>
+    </a>
     </div><!-- /sheet-scroll -->
     <div class="sheet-footer">
     <button class="sheet-close" id="sheet-close">閉じる</button>
@@ -935,13 +936,14 @@ async function saveData(){
 }
 
 // ── SYNC ──
-// 同期対象：親ユーザーは完全同期、子ユーザーはローカル習慣のログのみマージ。
+// 同期対象：開いているユーザーのみ完全同期（リモートで上書き）。他のユーザーはリモートデータをそのまま維持。
 async function syncFromRemote(silent=false){
   if(!getGasUrl()){setSyncDot('off');return;}
   if(!silent)setSyncDot('syncing');
   const remote=await remoteLoad();if(!remote){if(!silent)setSyncDot('err');return;}
   const local=getCache();
-  const pinnedId=getPinnedUserId();
+  // 対象：開いているタブのユーザー（currentUserId）のみ完全同期
+  const curUid=local.currentUserId;
   const merged={...local};
 
   // deletedUsersはローカルとリモートをマージ（両方のを保持）
@@ -950,35 +952,30 @@ async function syncFromRemote(silent=false){
   remoteDeleted.forEach(ru=>{if(!localDeleted.find(u=>u.id===ru.id))localDeleted.push(ru);});
   merged.deletedUsers=localDeleted;
 
+  // リモートのusers一覧を基準にする（他ユーザーはリモートデータをそのまま維持）
+  const newUsers=[];
   (remote.users||[]).forEach(ru=>{
     if(merged.deletedUsers.find(u=>u.id===ru.id))return;
-    const lu=merged.users.find(u=>u.id===ru.id);
-    if(!lu){
-      // リモートにしかいないユーザーはそのまま追加
+    if(ru.id===curUid){
+      // 開いているユーザーのみ完全同期：習慣・ログ・並び順をリモートで上書き
+      const lu=merged.users.find(u=>u.id===ru.id)||{};
       ru.habits=(ru.habits||[]).map(migrateHabit);
       ru.archive=(ru.archive||[]).map(migrateHabit);
-      merged.users.push(ru);
-    }else if(ru.id===pinnedId){
-      // 親ユーザー（ピン）のみ完全同期：習慣・ログ・並び順をリモートで上書き
-      lu.habits=(ru.habits||[]).map(migrateHabit);
-      lu.archive=(ru.archive||[]).map(migrateHabit);
-      if(ru.deletedHabitKeys)lu.deletedHabitKeys=ru.deletedHabitKeys;
-      if(ru.name)lu.name=ru.name;
+      newUsers.push({...lu,...ru,habits:ru.habits,archive:ru.archive});
     }else{
-      // 子ユーザー：ローカルにある習慣のログのみリモートとマージ
-      // 習慣の追加・削除・並び順はローカル優先。ログだけ双方向マージ（どちらかにあれば残す）
-      const remoteHabitMap=new Map((ru.habits||[]).map(rh=>[rh.name+'::'+rh.type,rh]));
-      (lu.habits||[]).forEach(lh=>{
-        const key=lh.name+'::'+(lh.type||'daily');
-        const rh=remoteHabitMap.get(key);
-        if(!rh)return; // リモートに対応習慣がなければスキップ
-        // ログをリモート→ローカルにマージ（ローカルにないキーだけ追加）
-        Object.keys(rh.logs||{}).forEach(k=>{
-          if(!(k in (lh.logs||{})))lh.logs[k]=rh.logs[k];
-        });
-      });
+      // 他のユーザー：リモートデータをそのまま使用
+      ru.habits=(ru.habits||[]).map(migrateHabit);
+      ru.archive=(ru.archive||[]).map(migrateHabit);
+      newUsers.push(ru);
     }
   });
+  // リモートに存在しないローカルユーザーを追加（削除済みは除く）
+  merged.users.forEach(lu=>{
+    if(!newUsers.find(u=>u.id===lu.id)&&!merged.deletedUsers.find(u=>u.id===lu.id)){
+      newUsers.push(lu);
+    }
+  });
+  merged.users=newUsers;
 
   // グループ名をリモートから反映
   if(remote.groupName){
@@ -2161,30 +2158,10 @@ document.getElementById('setup-save-btn').addEventListener('click',async()=>{
     status.textContent='❌ 接続できませんでした（URLを確認してください）';
     return;
   }
-  // 接続成功 → URL を保存してデータをマージ
+  // 接続成功 → URL を保存してsyncFromRemoteで統一処理
   setGasUrl(url);
-  const local=getCache();const merged={...data};
-  // グループ名をリモートから取得（groupNameフィールド）
-  if(data.groupName){
-    const groups=loadGroups();const id=getCurrentGroupId();
-    const g=groups.find(g=>g.id===id);
-    if(g&&data.groupName!==g.name){g.name=data.groupName;saveGroups(groups);}
-  }
-  // deletedUsersをマージ（ローカル＋リモート両方を保持）
-  const mergedDeleted=[...(local.deletedUsers||[])];
-  (data.deletedUsers||[]).forEach(ru=>{if(!mergedDeleted.find(u=>u.id===ru.id))mergedDeleted.push(ru);});
-  merged.deletedUsers=mergedDeleted;
-  // リモートから来たusersのうち削除済みのものを除外
-  merged.users=(merged.users||[]).filter(ru=>!mergedDeleted.find(u=>u.id===ru.id));
-  // ローカルにしかいないユーザーを追加（削除済みは除く）
-  local.users.forEach(lu=>{
-    if(!merged.users.find(ru=>ru.id===lu.id)&&!mergedDeleted.find(u=>u.id===lu.id))merged.users.push(lu);
-  });
-  merged.currentUserId=local.currentUserId;
-  if(!merged.users.find(u=>u.id===merged.currentUserId))merged.currentUserId=merged.users[0]?.id||'';
-  (merged.users||[]).forEach(u=>{u.habits=(u.habits||[]).map(migrateHabit);u.archive=(u.archive||[]).map(migrateHabit);});
-  setCache(merged);
-  setSyncDot('ok');status.textContent='✅ 接続成功！';refreshGasStatus();
+  await syncFromRemote();
+  status.textContent='✅ 接続成功！';refreshGasStatus();
   // ピンが有効ならそのままリスト画面へ、無効なら誰かを選ばせる
   const pinned=getPinnedUserId();const all=getCache();
   if(pinned&&all.users.find(u=>u.id===pinned)){
@@ -2211,64 +2188,61 @@ document.getElementById('setup-clear-btn').addEventListener('click',()=>{
 
 // ── MENU ──
 const overlay=document.getElementById('sheet-overlay');
-// ── ヘッダー GAS↑（アップロード）──
-// 方針：
-//   - まずサーバーの最新データを取得し、他メンバーのデータを保護した上でマージ送信
-//   - 親ユーザー → 設定含む自分のフルデータ（習慣・ログ・deletedHabitKeys・名前）をサーバーへ反映
-//   - 子ユーザー → 習慣のログデータのみ反映、習慣構成・設定はサーバー側を維持
-//   - サーバーにいて自分のデバイスにいない他メンバーは削除しない
-document.getElementById('gas-upload-btn').addEventListener('click',async()=>{
+// ════════════════════════════════════════
+// GAS↑ 選択シート → マージ or 完全上書き
+// ════════════════════════════════════════
+
+// 実処理①：習慣・ログをマージアップロード（対象：開いているタブのユーザー）
+async function gasUploadMerge(){
   if(!getGasUrl()){showToast('⚠ GAS URLが設定されていません');return;}
   setSyncDot('syncing');
 
-  // 1. サーバーの最新データを取得
   const remote=await remoteLoad();
   const local=getCache();
   const cg=getCurrentGroup();
-  const pinnedId=getPinnedUserId();
-  const myUser=local.users.find(u=>u.id===pinnedId)||getCurrentUser();
-  const isChild=myUser.id!==pinnedId||!pinnedId;
+  // 対象：開いているタブのユーザー（親子問わず）
+  const curUid=local.currentUserId;
+  const myUser=local.users.find(u=>u.id===curUid)||getCurrentUser();
 
-  // 2. サーバーデータをベースに、自分のデータだけ上書きしたペイロードを作成
+  // サーバーデータをベースに、開いているユーザーの習慣・ログ・並び順をマージ
   let baseUsers;
   if(remote&&remote.users){
     baseUsers=remote.users.map(ru=>{
       if(ru.id===myUser.id){
-        if(isChild){
-          // 子ユーザー：習慣のログのみ上書き（サーバー側の習慣構成を維持しつつログをマージ）
-          const myHabitMap=new Map((myUser.habits||[]).map(h=>[h.name+'::'+(h.type||'daily'),h]));
-          const updatedHabits=(ru.habits||[]).map(rh=>{
-            const key=rh.name+'::'+(rh.type||'daily');
-            const lh=myHabitMap.get(key);
-            if(!lh)return rh;
-            // ログをローカル→サーバーにマージ（どちらかにあれば残す）
-            const mergedLogs=Object.assign({},rh.logs||{},lh.logs||{});
-            return{...rh,logs:mergedLogs};
-          });
-          return{...ru,habits:updatedHabits};
-        }else{
-          // 親ユーザー：設定含む全データを上書き
-          return{...myUser};
-        }
+        // 習慣・ログ・並び順・deletedHabitKeys をローカルで上書き（マージ）
+        const myHabitMap=new Map((myUser.habits||[]).map(h=>[h.name+'::'+(h.type||'daily'),h]));
+        // ローカルの習慣並び順を基準に、ログをサーバーとマージ
+        const updatedHabits=(myUser.habits||[]).map(lh=>{
+          const key=lh.name+'::'+(lh.type||'daily');
+          const rh=myHabitMap.get(key);
+          // サーバーにも同じ習慣があればログをマージ（どちらかにあれば残す）
+          const serverHabit=(ru.habits||[]).find(h=>h.name+'::'+(h.type||'daily')===key);
+          const mergedLogs=Object.assign({},serverHabit?serverHabit.logs||{}:{},lh.logs||{});
+          return{...lh,logs:mergedLogs};
+        });
+        return{
+          ...ru,
+          habits:updatedHabits,
+          archive:myUser.archive||ru.archive||[],
+          deletedHabitKeys:myUser.deletedHabitKeys||ru.deletedHabitKeys||[],
+          name:myUser.name||ru.name
+        };
       }
-      // 他メンバー：サーバー側データをそのまま維持
-      return ru;
+      return ru; // 他メンバーはサーバー側をそのまま維持
     });
     // サーバーにいないが自分のデバイスにいるメンバーは追加（新規追加メンバー）
     local.users.forEach(lu=>{
       if(!baseUsers.find(u=>u.id===lu.id))baseUsers.push(lu);
     });
   }else{
-    // サーバーにデータがない場合（初回アップロード）はローカル全体を送信
     baseUsers=local.users;
   }
 
-  // 3. deletedUsersをマージ（サーバー側とローカル側の両方を保持）
+  // deletedUsersをマージ（サーバー側とローカル側の両方を保持）
   const remoteDeleted=remote&&remote.deletedUsers?remote.deletedUsers:[];
   const localDeleted=local.deletedUsers||[];
   const mergedDeleted=[...remoteDeleted];
   localDeleted.forEach(lu=>{if(!mergedDeleted.find(u=>u.id===lu.id))mergedDeleted.push(lu);});
-  // deletedUsersに含まれるユーザーはbaseUsersから除外
   const filteredUsers=baseUsers.filter(u=>!mergedDeleted.find(d=>d.id===u.id));
 
   const payload={
@@ -2281,51 +2255,33 @@ document.getElementById('gas-upload-btn').addEventListener('click',async()=>{
   if(ok){
     const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
     setGasSyncTime('upload',now);
-    showToast(isChild?'☁️ 習慣ログをサーバーへ送信しました':'☁️ GASへ送信しました');
+    showToast('☁️ 習慣・ログをGASに統合しました');
   }else showToast('⚠ 送信に失敗しました');
-});
+}
 
-// ── ヘッダー GAS↓（ダウンロード）──
-document.getElementById('gas-download-btn').addEventListener('click',async()=>{
-  if(!getGasUrl()){showToast('⚠ GAS URLが設定されていません');return;}
-  await syncFromRemote(false);
-  const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-  setGasSyncTime('download',now);
-});
-
-// ── メニュー：サーバーを完全上書き ──
-// ════════════════════════════════════════
-document.getElementById('gas-overwrite-btn').addEventListener('click',()=>{
-  // シートを閉じる
-  overlay.classList.remove('open');
-
+// 実処理②：完全上書き確認ダイアログを表示（対象：開いているタブのユーザー）
+function gasShowFullOverwriteDialog(){
   if(!getGasUrl()){showToast('⚠ GAS URLが設定されていません');return;}
   const local=getCache();
   const cg=getCurrentGroup();
-  const pinnedId=getPinnedUserId();
-  const myUser=local.users.find(u=>u.id===pinnedId)||getCurrentUser();
-
-  // 親ユーザー（ピンされたユーザー）のみ対象
-  if(myUser.id!==pinnedId||!pinnedId){
-    showToast('⚠ 完全上書きは親ユーザーのみ実行できます');
-    return;
-  }
+  // 対象：開いているタブのユーザー（親子問わず）
+  const curUid=local.currentUserId;
+  const myUser=local.users.find(u=>u.id===curUid)||getCurrentUser();
 
   const habitCount=(myUser.habits||[]).length;
   const logCount=(myUser.habits||[]).reduce((s,h)=>s+Object.keys(h.logs||{}).length,0);
   const deletedHabitCount=(myUser.deletedHabitKeys||[]).length;
 
-  // 確認ダイアログ：自分（親ユーザー）のデータ内容を明示
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:flex-end;justify-content:center;';
 
   ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;animation:slideUp .22s cubic-bezier(.22,1,.36,1);">
-    <div style="font-size:15px;font-weight:700;margin-bottom:4px;">☁️ サーバーを完全上書き</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">対象：あなた（親ユーザー）のデータのみ。他のメンバーはサーバー側のデータを維持します。</div>
-    <div style="font-size:12px;color:var(--red,#E24B4A);margin-bottom:14px;">⚠️ サーバー上のあなたのデータ（習慣・ログ・削除済み習慣情報を含む）をこのデバイスのデータで完全に置き換えます。</div>
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">送信されるあなたのデータ</div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px;">☁️ GASデータを完全上書き</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">対象：現在開いているタブのユーザーのデータのみ。他のメンバーはGASデータを維持します。</div>
+    <div style="font-size:12px;color:var(--red,#E24B4A);margin-bottom:14px;">⚠️ GAS上のこのユーザーのデータ（習慣・ログ・削除済み習慣情報を含む）をこのデバイスのデータで完全に置き換えます。</div>
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">送信されるデータ</div>
     <div style="background:var(--surface2);border-radius:10px;padding:10px 12px;margin-bottom:4px;">
-      <div style="font-size:13px;font-weight:600;margin-bottom:6px;">👤 ${myUser.name}（あなた）</div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px;">👤 ${myUser.name}</div>
       <div style="display:flex;gap:12px;font-size:12px;color:var(--text2);">
         <span>習慣 ${habitCount}件</span>
         <span>ログ ${logCount}件</span>
@@ -2333,7 +2289,7 @@ document.getElementById('gas-overwrite-btn').addEventListener('click',()=>{
       </div>
     </div>
     <div style="margin-top:8px;padding:8px 10px;background:var(--blue-light);border-radius:8px;font-size:12px;color:var(--blue);">
-      ℹ️ 他のメンバーのデータはサーバー側を維持します
+      ℹ️ 他のメンバーはGASデータを維持します
     </div>
     <div style="display:flex;gap:8px;margin-top:16px;">
       <button id="_gow-cancel" style="flex:1;height:44px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:14px;cursor:pointer;">キャンセル</button>
@@ -2349,28 +2305,20 @@ document.getElementById('gas-overwrite-btn').addEventListener('click',()=>{
     ov.remove();
     setSyncDot('syncing');
 
-    // サーバーの最新データを取得して他メンバーを保護しつつ自分だけ完全置き換え
     const remote=await remoteLoad();
     let baseUsers;
     if(remote&&remote.users){
       baseUsers=remote.users.map(ru=>{
-        if(ru.id===myUser.id){
-          // 自分のユーザーは習慣・ログ含め完全置き換え
-          return{...myUser};
-        }
-        return ru; // 他メンバーはサーバー側を維持
+        if(ru.id===myUser.id){return{...myUser};}
+        return ru;
       });
-      // サーバーにない自分のユーザーは追加
       if(!baseUsers.find(u=>u.id===myUser.id))baseUsers.push({...myUser});
     }else{
-      // サーバーにデータがなければ自分だけ送信
       baseUsers=[{...myUser}];
     }
 
-    // deletedUsersはこのデバイスのものを正とし、サーバー側にしかなかったものは捨てる
     const localDeleted=local.deletedUsers||[];
     const mergedDeleted=localDeleted.slice();
-    // フィルタ：deletedUsersに含まれるユーザーをbaseUsersから除外
     const filteredUsers=baseUsers.filter(u=>!mergedDeleted.find(d=>d.id===u.id));
 
     const payload={
@@ -2382,11 +2330,55 @@ document.getElementById('gas-overwrite-btn').addEventListener('click',()=>{
     if(ok){
       const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
       setGasSyncTime('upload',now);
-      showToast('☁️ あなたのデータをサーバーに完全上書きしました');
+      showToast('☁️ このユーザーのGASデータを完全上書きしました');
     }else{
       showToast('⚠ 送信に失敗しました');
     }
   });
+}
+
+// ── ヘッダー GAS↑ ボタン → 選択シートを表示 ──
+document.getElementById('gas-upload-btn').addEventListener('click',()=>{
+  if(!getGasUrl()){showToast('⚠ GAS URLが設定されていません');return;}
+
+  const curUser=getCurrentUser();
+  const uName=curUser?curUser.name:'このユーザー';
+
+  const sel=document.createElement('div');
+  sel.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999;display:flex;align-items:flex-end;justify-content:center;';
+  sel.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px;animation:slideUp .22s cubic-bezier(.22,1,.36,1);">
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px;">☁️ GASへアップロード</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:16px;">アップロード方法を選んでください</div>
+    <button id="_gup-merge" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:8px;text-align:left;">
+      <span style="width:36px;height:36px;border-radius:10px;background:var(--blue-light);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">↑</span>
+      <div>
+        <div>GASへアップロード（習慣・ログを統合）</div>
+        <div style="font-size:11px;color:var(--text2);font-weight:400;margin-top:2px;">ユーザー「${uName}」の習慣・ログをGASと統合（デバイスで削除した情報もGASに残っている場合ダウンロードで復元されます）。</div>
+      </div>
+    </button>
+    <button id="_gup-overwrite" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:16px;text-align:left;">
+      <span style="width:36px;height:36px;border-radius:10px;background:var(--red-light,#FFEAEA);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">☁️</span>
+      <div>
+        <div>GASを完全上書き（習慣・ログ・削除）</div>
+        <div style="font-size:11px;color:var(--text2);font-weight:400;margin-top:2px;">ユーザー「${uName}」のGASデータをデバイスデータで完全に置き換え（復元可能な削除データの完全削除を反映する場合など）。</div>
+      </div>
+    </button>
+    <button id="_gup-cancel" style="width:100%;height:44px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:14px;cursor:pointer;">キャンセル</button>
+  </div>`;
+  document.body.appendChild(sel);
+
+  sel.querySelector('#_gup-merge').addEventListener('click',()=>{sel.remove();gasUploadMerge();});
+  sel.querySelector('#_gup-overwrite').addEventListener('click',()=>{sel.remove();gasShowFullOverwriteDialog();});
+  sel.querySelector('#_gup-cancel').addEventListener('click',()=>sel.remove());
+  sel.addEventListener('click',e=>{if(e.target===sel)sel.remove();});
+});
+
+// ── ヘッダー GAS↓（ダウンロード）──
+document.getElementById('gas-download-btn').addEventListener('click',async()=>{
+  if(!getGasUrl()){showToast('⚠ GAS URLが設定されていません');return;}
+  await syncFromRemote(false);
+  const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  setGasSyncTime('download',now);
 });
 // ════════════════════════════════════════
 
@@ -2416,13 +2408,7 @@ document.getElementById('menu-btn').addEventListener('click',()=>{
   // GAS連携ボタンのdesc更新
   const gasDescEl=document.getElementById('gas-settings-desc');
   if(gasDescEl){const gurl=getGasUrl();gasDescEl.textContent=gurl?'🔗 設定済み（タップして変更）':'未設定（タップして設定）';}
-  // 完全上書きボタン：GAS設定済み＆親ユーザーのみ表示
-  const overwriteBtn=document.getElementById('gas-overwrite-btn');
-  if(overwriteBtn){
-    const _pinnedId=getPinnedUserId();const _local=getCache();
-    const _myUser=_local.users.find(u=>u.id===_pinnedId)||getCurrentUser();
-    overwriteBtn.style.display=(getGasUrl()&&_myUser.id===_pinnedId&&!!_pinnedId)?'':'none';
-  }
+
   // copy-user-label更新
   const cuLbl=document.getElementById('copy-user-label');
   if(cuLbl){const cu2=getCurrentUser();cuLbl.textContent=`「${cu2.name}」をコピーして別ユーザーを作成`;}
