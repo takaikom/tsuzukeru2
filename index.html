@@ -342,6 +342,35 @@
   .compare-meta{font-size:10px;color:var(--text3);}
   /* 空状態 */
   .an-empty{text-align:center;padding:28px 16px;color:var(--text3);font-size:13px;line-height:1.7;}
+  /* 期間タブ */
+  .an-period-tabs{display:flex;gap:4px;margin-bottom:12px;background:var(--surface2);border-radius:10px;padding:3px;}
+  .an-period-tab{flex:1;padding:5px 8px;border-radius:8px;border:none;background:transparent;color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:background .15s,color .15s;-webkit-tap-highlight-color:transparent;}
+  .an-period-tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.10);}
+  /* 期間指定入力 */
+  .an-range-row{display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+  .an-range-label{font-size:11px;color:var(--text3);flex-shrink:0;}
+  .an-range-input{flex:1;min-width:120px;padding:5px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);font-family:'Noto Sans JP',sans-serif;font-size:12px;color:var(--text);outline:none;}
+  .an-range-input:focus{border-color:var(--blue);}
+  /* ときどき・やめる バーグラフ */
+  .occ-bar-fill{background:var(--purple)!important;}
+  .quit-bar-ok-fill{background:var(--green)!important;}
+  .quit-bar-ng-fill{background:var(--red-mid)!important;}
+  /* やめる！ 凡例 */
+  .quit-legend{display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap;}
+  .quit-legend-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);}
+  .quit-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  /* サマリー数値 */
+  .an-count-badge{font-size:11px;font-weight:700;font-family:'DM Mono',monospace;padding:1px 6px;border-radius:6px;flex-shrink:0;}
+  .an-count-badge.occ{background:var(--purple-light);color:var(--purple);}
+  .an-count-badge.ok{background:var(--green-light);color:var(--green);}
+  .an-count-badge.ng{background:var(--red-light);color:var(--red);}
+  /* やめる 2段バー */
+  .quit-bar-wrap{display:flex;flex-direction:column;gap:2px;}
+  .quit-bar-row-mini{display:flex;align-items:center;gap:4px;}
+  .quit-mini-label{font-size:9px;color:var(--text3);width:28px;flex-shrink:0;text-align:right;}
+  .quit-bar-track-mini{flex:1;height:7px;background:var(--surface2);border-radius:99px;overflow:hidden;}
+  .quit-bar-fill-mini{height:100%;border-radius:99px;transition:width .5s cubic-bezier(.22,1,.36,1);}
+  .quit-mini-count{font-size:10px;font-family:'DM Mono',monospace;width:24px;text-align:right;flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -569,6 +598,72 @@
       <div class="analytics-section-title">👥 グループ内ユーザー比較（今月・毎日習慣）</div>
       <div class="analytics-card" id="an-compare-card">
         <div class="an-empty">データがありません</div>
+      </div>
+    </div>
+
+    <!-- ④ ときどき習慣の回数 -->
+    <div class="analytics-section" id="an-occasional-section">
+      <div class="analytics-section-title">🔮 ときどき習慣の実施回数</div>
+      <div class="analytics-card">
+        <div class="an-user-tabs" id="an-occ-user-tabs"></div>
+        <!-- 期間タブ -->
+        <div class="an-period-tabs" id="an-occ-period-tabs">
+          <button class="an-period-tab active" data-mode="month">月別</button>
+          <button class="an-period-tab" data-mode="range">期間指定</button>
+        </div>
+        <!-- 月別モード -->
+        <div id="an-occ-month-wrap">
+          <div class="an-month-nav">
+            <button class="an-month-btn" id="an-occ-prev-month">‹</button>
+            <div class="an-month-label" id="an-occ-month-label"></div>
+            <button class="an-month-btn" id="an-occ-next-month">›</button>
+          </div>
+        </div>
+        <!-- 期間指定モード -->
+        <div id="an-occ-range-wrap" style="display:none;">
+          <div class="an-range-row">
+            <label class="an-range-label">開始</label>
+            <input type="date" class="an-range-input" id="an-occ-date-from">
+            <label class="an-range-label">終了</label>
+            <input type="date" class="an-range-input" id="an-occ-date-to">
+          </div>
+        </div>
+        <div class="bar-chart" id="an-occ-chart">
+          <div class="an-empty">データがありません</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⑤ やめる！習慣の記録 -->
+    <div class="analytics-section" id="an-quit-section">
+      <div class="analytics-section-title">🚫 やめる！習慣の記録</div>
+      <div class="analytics-card">
+        <div class="an-user-tabs" id="an-quit-user-tabs"></div>
+        <!-- 期間タブ -->
+        <div class="an-period-tabs" id="an-quit-period-tabs">
+          <button class="an-period-tab active" data-mode="month">月別</button>
+          <button class="an-period-tab" data-mode="range">期間指定</button>
+        </div>
+        <!-- 月別モード -->
+        <div id="an-quit-month-wrap">
+          <div class="an-month-nav">
+            <button class="an-month-btn" id="an-quit-prev-month">‹</button>
+            <div class="an-month-label" id="an-quit-month-label"></div>
+            <button class="an-month-btn" id="an-quit-next-month">›</button>
+          </div>
+        </div>
+        <!-- 期間指定モード -->
+        <div id="an-quit-range-wrap" style="display:none;">
+          <div class="an-range-row">
+            <label class="an-range-label">開始</label>
+            <input type="date" class="an-range-input" id="an-quit-date-from">
+            <label class="an-range-label">終了</label>
+            <input type="date" class="an-range-input" id="an-quit-date-to">
+          </div>
+        </div>
+        <div class="bar-chart" id="an-quit-chart">
+          <div class="an-empty">データがありません</div>
+        </div>
       </div>
     </div>
 
@@ -857,10 +952,17 @@ async function syncFromRemote(silent=false){
     if(g&&g.gasUrl&&remote.groupName!==g.name){g.name=remote.groupName;saveGroups(groups);}
   }
   setCache(merged);
-  // ピンが有効かチェック
+  // 親モードで選択中のタブが引き続き有効なら currentUserId を保持する。
+  // 無効になっていた場合のみピンユーザーへフォールバック。
   const pinned=getPinnedUserId();
-  if(pinned&&merged.users.find(u=>u.id===pinned)){
-    merged.currentUserId=pinned;setCache(merged);
+  const currentIsValid=!!merged.users.find(u=>u.id===merged.currentUserId);
+  if(!currentIsValid){
+    if(pinned&&merged.users.find(u=>u.id===pinned)){
+      merged.currentUserId=pinned;
+    }else if(merged.users.length){
+      merged.currentUserId=merged.users[0].id;
+    }
+    setCache(merged);
   }
   renderGroupTabs();renderUserTabs();render();
   if(!silent)setSyncDot('ok');
@@ -1146,7 +1248,9 @@ function renderGroupTabs(){
 
 // ── USER TABS ──
 function renderUserTabs(){
-  const all=getCache();const tabs=document.getElementById('user-tabs');tabs.innerHTML='';
+  const all=getCache();const tabs=document.getElementById('user-tabs');
+  const prevScrollLeft=tabs.scrollLeft; // スクロール位置を保存
+  tabs.innerHTML='';
   const parent=isParentMode();const pinnedId=getPinnedUserId();
   const visibleUsers=parent?all.users:all.users.filter(u=>u.id===pinnedId);
 
@@ -1281,6 +1385,8 @@ function renderUserTabs(){
   document.addEventListener('mousemove',onMove);
   document.addEventListener('mouseup',onUp);
 
+  // スクロール位置を復元（同期後のタブリセット防止）
+  requestAnimationFrame(()=>{tabs.scrollLeft=prevScrollLeft;});
   // ＋ユーザー追加ボタンは親モードのみ表示
   if(parent){
     const addBtn=document.createElement('button');
@@ -2450,6 +2556,20 @@ document.getElementById('analytics-btn').addEventListener('click',()=>{overlay.c
 let anYear=new Date().getFullYear();
 let anMonth=new Date().getMonth();
 let anRateUserId=null; // null = 自分
+// ときどき用
+let anOccUserId=null;
+let anOccYear=new Date().getFullYear();
+let anOccMonth=new Date().getMonth();
+let anOccMode='month'; // 'month' | 'range'
+let anOccDateFrom='';
+let anOccDateTo='';
+// やめる！用
+let anQuitUserId=null;
+let anQuitYear=new Date().getFullYear();
+let anQuitMonth=new Date().getMonth();
+let anQuitMode='month';
+let anQuitDateFrom='';
+let anQuitDateTo='';
 
 // バーの色パレット（ユーザーごとに割り当て）
 const AN_COLORS=['#D85A30','#185FA5','#3B6D11','#534AB7','#BA7517','#A32D2D','#639922'];
@@ -2458,8 +2578,31 @@ function anColor(idx){return AN_COLORS[idx%AN_COLORS.length];}
 function openAnalytics(){
   const all=getCache();
   anRateUserId=all.currentUserId;
+  anOccUserId=all.currentUserId;
+  anQuitUserId=all.currentUserId;
   anYear=new Date().getFullYear();
   anMonth=new Date().getMonth();
+  anOccYear=new Date().getFullYear();
+  anOccMonth=new Date().getMonth();
+  anQuitYear=new Date().getFullYear();
+  anQuitMonth=new Date().getMonth();
+  const today=TODAY;
+  const monthAgo=localDateOffset(30);
+  anOccDateFrom=monthAgo; anOccDateTo=today;
+  anQuitDateFrom=monthAgo; anQuitDateTo=today;
+  // date input の初期値をセット
+  document.getElementById('an-occ-date-from').value=monthAgo;
+  document.getElementById('an-occ-date-to').value=today;
+  document.getElementById('an-quit-date-from').value=monthAgo;
+  document.getElementById('an-quit-date-to').value=today;
+  // 期間タブをリセット
+  anOccMode='month'; anQuitMode='month';
+  document.querySelectorAll('#an-occ-period-tabs .an-period-tab').forEach(b=>b.classList.toggle('active',b.dataset.mode==='month'));
+  document.getElementById('an-occ-month-wrap').style.display='block';
+  document.getElementById('an-occ-range-wrap').style.display='none';
+  document.querySelectorAll('#an-quit-period-tabs .an-period-tab').forEach(b=>b.classList.toggle('active',b.dataset.mode==='month'));
+  document.getElementById('an-quit-month-wrap').style.display='block';
+  document.getElementById('an-quit-range-wrap').style.display='none';
   renderAnalytics();
   showScreen('screen-analytics');
 }
@@ -2469,6 +2612,10 @@ function renderAnalytics(){
   renderAnRateUserTabs();
   renderAnRate();
   renderAnCompare();
+  renderAnOccasionalUserTabs();
+  renderAnOccasional();
+  renderAnQuitUserTabs();
+  renderAnQuit();
 }
 
 // ① ストリークランキング（グループ全員の毎日習慣）
@@ -2623,6 +2770,252 @@ document.getElementById('an-prev-month').addEventListener('click',()=>{
 document.getElementById('an-next-month').addEventListener('click',()=>{
   anMonth++;if(anMonth>11){anMonth=0;anYear++;}renderAnRate();
 });
+
+// ─────────────────────────────────────────────
+// ④ ときどき習慣 ユーザータブ
+function renderAnOccasionalUserTabs(){
+  const all=getCache();
+  const occ=(u)=>(u.habits||[]).filter(h=>h.type==='occasional');
+  const users=all.users.filter(u=>occ(u).length>0);
+  const wrap=document.getElementById('an-occ-user-tabs');
+  const section=document.getElementById('an-occasional-section');
+  if(users.length===0){section.style.display='none';return;}
+  section.style.display='block';
+  wrap.style.display=users.length>1?'flex':'none';
+  wrap.innerHTML='';
+  users.forEach(u=>{
+    const btn=document.createElement('button');
+    btn.className='an-user-tab'+(u.id===anOccUserId?' active':'');
+    btn.textContent=u.name;
+    btn.addEventListener('click',()=>{anOccUserId=u.id;renderAnOccasionalUserTabs();renderAnOccasional();});
+    wrap.appendChild(btn);
+  });
+  // 選択中ユーザーが存在しない場合は最初のユーザーにリセット
+  if(!users.find(u=>u.id===anOccUserId)){anOccUserId=users[0].id;}
+}
+
+// ④ ときどき習慣 チャート本体
+function renderAnOccasional(){
+  const all=getCache();
+  const user=all.users.find(u=>u.id===anOccUserId)||all.users.find(u=>(u.habits||[]).some(h=>h.type==='occasional'));
+  const chart=document.getElementById('an-occ-chart');
+  if(!user){chart.innerHTML='<div class="an-empty">ときどき習慣がありません</div>';return;}
+  const habits=(user.habits||[]).filter(h=>h.type==='occasional');
+  if(!habits.length){chart.innerHTML='<div class="an-empty">ときどき習慣がありません</div>';return;}
+
+  const now=new Date();
+  document.getElementById('an-occ-month-label').textContent=`${anOccYear}年${anOccMonth+1}月`;
+  document.getElementById('an-occ-next-month').disabled=anOccYear===now.getFullYear()&&anOccMonth===now.getMonth();
+
+  let days=[];
+  let headerText='';
+  if(anOccMode==='month'){
+    const dim=new Date(anOccYear,anOccMonth+1,0).getDate();
+    const isCurrentMonth=anOccYear===now.getFullYear()&&anOccMonth===now.getMonth();
+    const elapsed=isCurrentMonth?now.getDate():dim;
+    for(let d=1;d<=elapsed;d++) days.push(dateKey(anOccYear,anOccMonth,d));
+    headerText=`${anOccYear}年${anOccMonth+1}月 (${elapsed}日間)`;
+  } else {
+    const from=anOccDateFrom||localDateOffset(30);
+    const to=anOccDateTo||TODAY;
+    let cur=new Date(from+'T00:00:00');
+    const end=new Date(to+'T00:00:00');
+    while(cur<=end){
+      days.push(cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0'));
+      cur.setDate(cur.getDate()+1);
+    }
+    headerText=`${from}〜${to} (${days.length}日間)`;
+  }
+
+  chart.innerHTML='';
+  if(anOccMode==='range'){
+    const summary=document.createElement('div');
+    summary.style.cssText='font-size:11px;color:var(--text3);margin-bottom:10px;';
+    summary.textContent=headerText;
+    chart.appendChild(summary);
+  }
+
+  const maxCount=Math.max(1,...habits.map(h=>days.filter(k=>(h.logs||{})[k]).length));
+
+  habits.forEach((h,hi)=>{
+    const count=days.filter(k=>(h.logs||{})[k]).length;
+    const pct=Math.round(count/maxCount*100);
+    const row=document.createElement('div');
+    row.className='bar-chart-row';
+    row.innerHTML=`
+      <div class="bar-chart-label">
+        <span class="bar-chart-name">${escHtml(h.name)}</span>
+        <span class="an-count-badge occ">${count}回</span>
+      </div>
+      <div class="bar-chart-track">
+        <div class="bar-chart-fill occ-bar-fill" style="width:0%;" data-pct="${pct}"></div>
+      </div>`;
+    chart.appendChild(row);
+  });
+  requestAnimationFrame(()=>{
+    chart.querySelectorAll('.bar-chart-fill').forEach(el=>{el.style.width=el.dataset.pct+'%';});
+  });
+}
+
+// ─────────────────────────────────────────────
+// ⑤ やめる！習慣 ユーザータブ
+function renderAnQuitUserTabs(){
+  const all=getCache();
+  const users=all.users.filter(u=>(u.habits||[]).some(h=>h.type==='quit'));
+  const wrap=document.getElementById('an-quit-user-tabs');
+  const section=document.getElementById('an-quit-section');
+  if(users.length===0){section.style.display='none';return;}
+  section.style.display='block';
+  wrap.style.display=users.length>1?'flex':'none';
+  wrap.innerHTML='';
+  users.forEach(u=>{
+    const btn=document.createElement('button');
+    btn.className='an-user-tab'+(u.id===anQuitUserId?' active':'');
+    btn.textContent=u.name;
+    btn.addEventListener('click',()=>{anQuitUserId=u.id;renderAnQuitUserTabs();renderAnQuit();});
+    wrap.appendChild(btn);
+  });
+  if(!users.find(u=>u.id===anQuitUserId)){anQuitUserId=users[0].id;}
+}
+
+// ⑤ やめる！習慣 チャート本体
+function renderAnQuit(){
+  const all=getCache();
+  const user=all.users.find(u=>u.id===anQuitUserId)||all.users.find(u=>(u.habits||[]).some(h=>h.type==='quit'));
+  const chart=document.getElementById('an-quit-chart');
+  if(!user){chart.innerHTML='<div class="an-empty">やめる！習慣がありません</div>';return;}
+  const habits=(user.habits||[]).filter(h=>h.type==='quit');
+  if(!habits.length){chart.innerHTML='<div class="an-empty">やめる！習慣がありません</div>';return;}
+
+  const now=new Date();
+  document.getElementById('an-quit-month-label').textContent=`${anQuitYear}年${anQuitMonth+1}月`;
+  document.getElementById('an-quit-next-month').disabled=anQuitYear===now.getFullYear()&&anQuitMonth===now.getMonth();
+
+  let days=[];
+  let headerText='';
+  if(anQuitMode==='month'){
+    const dim=new Date(anQuitYear,anQuitMonth+1,0).getDate();
+    const isCurrentMonth=anQuitYear===now.getFullYear()&&anQuitMonth===now.getMonth();
+    const elapsed=isCurrentMonth?now.getDate():dim;
+    for(let d=1;d<=elapsed;d++) days.push(dateKey(anQuitYear,anQuitMonth,d));
+    headerText=`${anQuitYear}年${anQuitMonth+1}月 (${elapsed}日間)`;
+  } else {
+    const from=anQuitDateFrom||localDateOffset(30);
+    const to=anQuitDateTo||TODAY;
+    let cur=new Date(from+'T00:00:00');
+    const end=new Date(to+'T00:00:00');
+    while(cur<=end){
+      days.push(cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0'));
+      cur.setDate(cur.getDate()+1);
+    }
+    headerText=`${from}〜${to} (${days.length}日間)`;
+  }
+
+  chart.innerHTML='';
+  // 凡例
+  const legend=document.createElement('div');
+  legend.className='quit-legend';
+  legend.innerHTML=`<div class="quit-legend-item"><div class="quit-legend-dot" style="background:var(--green);"></div>我慢できた日</div><div class="quit-legend-item"><div class="quit-legend-dot" style="background:var(--red-mid);"></div>やってしまった日</div>`;
+  chart.appendChild(legend);
+  if(anQuitMode==='range'){
+    const summary=document.createElement('div');
+    summary.style.cssText='font-size:11px;color:var(--text3);margin-bottom:10px;';
+    summary.textContent=headerText;
+    chart.appendChild(summary);
+  }
+
+  const maxDays=Math.max(1,days.length);
+
+  habits.forEach(h=>{
+    const ok=days.filter(k=>(h.logs||{})[k]).length; // 我慢できた（チェックあり）
+    const ng=days.filter(k=>!(h.logs||{})[k]).length; // やってしまった
+    const okPct=Math.round(ok/maxDays*100);
+    const ngPct=Math.round(ng/maxDays*100);
+    const resistPct=days.length?Math.round(ok/days.length*100):0;
+
+    const row=document.createElement('div');
+    row.className='bar-chart-row';
+    row.innerHTML=`
+      <div class="bar-chart-label">
+        <span class="bar-chart-name">${escHtml(h.name)}</span>
+        <span style="display:flex;gap:4px;">
+          <span class="an-count-badge ok">✓ ${ok}日</span>
+          <span class="an-count-badge ng">✗ ${ng}日</span>
+        </span>
+      </div>
+      <div class="quit-bar-wrap">
+        <div class="quit-bar-row-mini">
+          <div class="quit-mini-label" style="color:var(--green);">我慢</div>
+          <div class="quit-bar-track-mini">
+            <div class="quit-bar-fill-mini" style="width:0%;background:var(--green);" data-pct="${okPct}"></div>
+          </div>
+          <div class="quit-mini-count" style="color:var(--green);">${ok}</div>
+        </div>
+        <div class="quit-bar-row-mini">
+          <div class="quit-mini-label" style="color:var(--red-mid);">失敗</div>
+          <div class="quit-bar-track-mini">
+            <div class="quit-bar-fill-mini" style="width:0%;background:var(--red-mid);" data-pct="${ngPct}"></div>
+          </div>
+          <div class="quit-mini-count" style="color:var(--red-mid);">${ng}</div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px;">我慢率 ${resistPct}%</div>`;
+    chart.appendChild(row);
+  });
+  requestAnimationFrame(()=>{
+    chart.querySelectorAll('.quit-bar-fill-mini').forEach(el=>{el.style.width=el.dataset.pct+'%';});
+  });
+}
+
+// ─────────────────────────────────────────────
+// ときどき 月ナビ
+document.getElementById('an-occ-prev-month').addEventListener('click',()=>{
+  anOccMonth--;if(anOccMonth<0){anOccMonth=11;anOccYear--;}renderAnOccasional();
+});
+document.getElementById('an-occ-next-month').addEventListener('click',()=>{
+  anOccMonth++;if(anOccMonth>11){anOccMonth=0;anOccYear++;}renderAnOccasional();
+});
+// やめる！月ナビ
+document.getElementById('an-quit-prev-month').addEventListener('click',()=>{
+  anQuitMonth--;if(anQuitMonth<0){anQuitMonth=11;anQuitYear--;}renderAnQuit();
+});
+document.getElementById('an-quit-next-month').addEventListener('click',()=>{
+  anQuitMonth++;if(anQuitMonth>11){anQuitMonth=0;anQuitYear++;}renderAnQuit();
+});
+
+// ときどき 期間タブ切り替え
+document.getElementById('an-occ-period-tabs').addEventListener('click',e=>{
+  const btn=e.target.closest('.an-period-tab');
+  if(!btn)return;
+  anOccMode=btn.dataset.mode;
+  document.querySelectorAll('#an-occ-period-tabs .an-period-tab').forEach(b=>b.classList.toggle('active',b===btn));
+  document.getElementById('an-occ-month-wrap').style.display=anOccMode==='month'?'block':'none';
+  document.getElementById('an-occ-range-wrap').style.display=anOccMode==='range'?'block':'none';
+  renderAnOccasional();
+});
+// ときどき 期間入力
+document.getElementById('an-occ-date-from').addEventListener('change',e=>{anOccDateFrom=e.target.value;renderAnOccasional();});
+document.getElementById('an-occ-date-to').addEventListener('change',e=>{anOccDateTo=e.target.value;renderAnOccasional();});
+
+// やめる！期間タブ切り替え
+document.getElementById('an-quit-period-tabs').addEventListener('click',e=>{
+  const btn=e.target.closest('.an-period-tab');
+  if(!btn)return;
+  anQuitMode=btn.dataset.mode;
+  document.querySelectorAll('#an-quit-period-tabs .an-period-tab').forEach(b=>b.classList.toggle('active',b===btn));
+  document.getElementById('an-quit-month-wrap').style.display=anQuitMode==='month'?'block':'none';
+  document.getElementById('an-quit-range-wrap').style.display=anQuitMode==='range'?'block':'none';
+  renderAnQuit();
+});
+// やめる！期間入力
+document.getElementById('an-quit-date-from').addEventListener('change',e=>{anQuitDateFrom=e.target.value;renderAnQuit();});
+document.getElementById('an-quit-date-to').addEventListener('change',e=>{anQuitDateTo=e.target.value;renderAnQuit();});
+
+// openAnalyticsで入力欄にデフォルト値をセット（DOM構築後）
+const _origOpenAnalytics=openAnalytics;
+// （初期化は openAnalytics 内で済み）
+
+
 document.getElementById('deleted-users-btn').addEventListener('click',()=>{
   overlay.classList.remove('open');
   const ov=document.createElement('div');
