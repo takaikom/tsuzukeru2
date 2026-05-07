@@ -153,11 +153,28 @@
   /* ACTION BUTTONS */
   .card-actions{display:flex;align-items:center;gap:4px;flex-shrink:0;}
   .act-btn{width:26px;height:26px;border-radius:7px;border:1px solid var(--border2);background:var(--surface2);color:var(--text3);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;transition:background .15s;}
+  .act-btn.del{display:none;} /* PCではホバー削除ボタンを使うため常時表示しない */
   .act-btn.del:active{background:#FCEBEB;color:#E24B4A;}
   .act-btn.edit:active{background:var(--amber-light);color:var(--amber);}
   .act-btn.cal:active{background:var(--accent-light);}
   .act-btn.link-open{width:22px;height:22px;border-radius:5px;font-size:11px;}
   .act-btn.link-open:active{background:var(--blue-light);}
+
+  /* SWIPE-TO-DELETE WRAPPER */
+  .habit-swipe-wrap{position:relative;border-radius:14px;overflow:hidden;}
+  .habit-swipe-del{position:absolute;right:0;top:0;bottom:0;width:80px;background:var(--red);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;border-radius:0 14px 14px 0;pointer-events:none;opacity:0;transition:opacity .15s;}
+  .habit-swipe-del.visible{opacity:1;}
+  /* PC: ホバー時に削除ボタンを表示 */
+  .habit-swipe-wrap:hover .habit-hover-del{opacity:1;pointer-events:auto;}
+  .habit-hover-del{width:26px;height:26px;border-radius:7px;border:1px solid var(--border2);background:var(--surface2);color:var(--text3);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s,background .12s,color .12s,border-color .12s;pointer-events:none;flex-shrink:0;}
+  .habit-hover-del:hover{background:#FCEBEB;color:#E24B4A;border-color:#E24B4A;}
+  @media (hover:none){.habit-hover-del{display:none !important;}}
+
+  /* EDIT LOCK BANNER */
+  .edit-lock-banner{display:none;align-items:center;justify-content:center;gap:6px;padding:5px 16px;background:var(--amber-light);border-bottom:1px solid var(--amber);font-size:12px;color:var(--amber);font-weight:500;}
+  .edit-lock-banner.visible{display:flex;}
+  .edit-lock-banner button{padding:2px 10px;border-radius:6px;border:1px solid var(--amber);background:transparent;color:var(--amber);font-family:inherit;font-size:11px;cursor:pointer;font-weight:700;}
+  .edit-lock-banner button:active{background:var(--amber-light);}
 
   /* Inline rename */
   .rename-form{flex-direction:column;gap:8px;margin-top:8px;}
@@ -498,6 +515,10 @@
       </div>
     </div>
   </div>
+  <div class="edit-lock-banner" id="edit-lock-banner">
+    🔒 編集ロック中（削除・編集・追加が無効）
+    <button id="unlock-banner-btn">解除</button>
+  </div>
   <div class="main">
     <div class="section-label">習慣リスト</div>
     <div class="habit-list" id="habit-list"></div>
@@ -733,6 +754,14 @@
     </button>
 
     <hr class="sheet-divider">
+    <div class="toggle-row" id="edit-lock-toggle-row">
+      <div class="toggle-left">
+        <div class="btn-icon" style="background:var(--amber-light);">🔒</div>
+        <div><div class="toggle-label">編集ロック</div><div class="toggle-desc">習慣の削除・編集・追加を禁止にする（子どもの誤操作防止）</div></div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="edit-lock-toggle"><span class="toggle-track"></span></label>
+    </div>
+    <hr class="sheet-divider">
     <button class="sheet-btn" id="archive-btn">
       <div class="btn-icon archive">🗂️</div>
       <div><div>削除した習慣 <span id="archive-badge" style="display:none;background:var(--accent);color:white;border-radius:99px;font-size:11px;padding:1px 7px;margin-left:4px;"></span></div><div class="btn-desc">アーカイブから復元できます</div></div>
@@ -779,7 +808,27 @@ const GROUPS_KEY='tsuzukeru_groups';   // [{id,name,gasUrl}]
 const CURRENT_GROUP_KEY='tsuzukeru_current_group';
 const PINNED_KEY='tsuzukeru_pinned_user';
 const PARENT_KEY='tsuzukeru_parent_mode';
+const EDIT_LOCK_KEY='tsuzukeru_edit_lock';
 const TYPES=['daily','occasional','quit']; // 毎日・ときどき・やめる！
+
+function isEditLocked(){return localStorage.getItem(EDIT_LOCK_KEY)==='1';}
+function setEditLock(val){
+  localStorage.setItem(EDIT_LOCK_KEY,val?'1':'0');
+  const banner=document.getElementById('edit-lock-banner');
+  if(banner){banner.classList.toggle('visible',!!val);}
+  const toggle=document.getElementById('edit-lock-toggle');
+  if(toggle){toggle.checked=!!val;}
+  // 追加フォームの有効/無効
+  const addInput=document.getElementById('add-input');
+  const addBtn=document.getElementById('add-btn');
+  const addTypeBtn=document.getElementById('add-type-btn');
+  if(addInput)addInput.disabled=!!val;
+  if(addBtn)addBtn.disabled=!!val;
+  if(addTypeBtn)addTypeBtn.disabled=!!val;
+  if(addInput)addInput.style.opacity=val?'0.4':'';
+  if(addBtn)addBtn.style.opacity=val?'0.4':'';
+  if(addTypeBtn)addTypeBtn.style.opacity=val?'0.4':'';
+}
 
 function localDateStr(d){const dt=d||new Date();return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
 function localDateOffset(n){const d=new Date();d.setDate(d.getDate()-n);return localDateStr(d);}
@@ -1778,6 +1827,12 @@ function render(){
     const streak2=isQuit?getQuitStreak(habit):getStreak(habit);
     const milestone=milestoneLabel(streak2,type);
 
+    const wrap=document.createElement('div');
+    wrap.className='habit-swipe-wrap';
+    const delBg=document.createElement('div');
+    delBg.className='habit-swipe-del';delBg.id='hswipe-'+idx;delBg.textContent='削除';
+    wrap.appendChild(delBg);
+
     const card=document.createElement('div');
     card.className=cardClass;
     card.dataset.habitIdx=idx;
@@ -1789,7 +1844,7 @@ function render(){
           <span class="habit-name">${escHtml(habit.name)}${tagHtml}</span>
         </div>
         <div class="card-actions">
-          <button class="act-btn del" data-idx="${idx}" title="削除">✕</button>
+          <button class="habit-hover-del" data-idx="${idx}" title="削除">✕</button>
           <button class="act-btn edit" data-idx="${idx}" title="編集">✏️</button>
           <button class="act-btn cal" data-idx="${idx}" title="カレンダー">📅</button>
         </div>
@@ -1808,9 +1863,11 @@ function render(){
       ${(habit.showMemo&&habit.memo)?'<div class="card-memo">'+renderMemoHtml(habit.memo)+'</div>':''}
       `;
 
+    wrap.appendChild(card);
+
     // チェック
     card.addEventListener('click',async(e)=>{
-      if(e.target.closest('.act-btn')||e.target.closest('.rename-form')||e.target.closest('.drag-handle')||e.target.closest('.card-memo'))return;
+      if(e.target.closest('.act-btn')||e.target.closest('.habit-hover-del')||e.target.closest('.rename-form')||e.target.closest('.drag-handle')||e.target.closest('.card-memo'))return;
       const a=getCache();const u=a.users.find(u=>u.id===a.currentUserId);
       const h=u.habits[idx];if(!h.logs)h.logs={};
       h.logs[TODAY]?delete h.logs[TODAY]:(h.logs[TODAY]=true);
@@ -1821,7 +1878,10 @@ function render(){
     const handle=card.querySelector('.drag-handle');
     initDrag(handle,card,list);
 
-    list.appendChild(card);
+    // スワイプ削除（スマホ）
+    initHabitSwipe(card,delBg,idx);
+
+    list.appendChild(wrap);
   });
 
   // カレンダーボタン
@@ -1854,25 +1914,65 @@ function render(){
   // 編集ボタン
   list.querySelectorAll('.act-btn.edit').forEach(btn=>{
     btn.addEventListener('click',(e)=>{
-      e.stopPropagation();const idx=parseInt(btn.dataset.idx);
+      e.stopPropagation();
+      if(isEditLocked()){showToast('🔒 編集ロック中です');return;}
+      const idx=parseInt(btn.dataset.idx);
       openHabitEditSheet(idx);
     });
   });
 
-  // 削除ボタン
-  list.querySelectorAll('.act-btn.del').forEach(btn=>{
+  // ホバー削除ボタン（PC用）
+  list.querySelectorAll('.habit-hover-del').forEach(btn=>{
     btn.addEventListener('click',async(e)=>{
-      e.stopPropagation();const idx=parseInt(btn.dataset.idx);
-      const a=getCache();const u=a.users.find(uu=>uu.id===a.currentUserId);
-      const habit=JSON.parse(JSON.stringify(u.habits[idx]));
-      habit.deletedAt=TODAY;if(!u.archive)u.archive=[];
-      u.archive.unshift(habit);u.habits.splice(idx,1);
-      // 削除済み習慣キーを記録（同期時に再追加されないようにする）
-      const hkey=(habit.createdAt||'')+'::'+(habit.name||'');
-      if(!u.deletedHabitKeys)u.deletedHabitKeys=[];
-      if(!u.deletedHabitKeys.includes(hkey))u.deletedHabitKeys.push(hkey);
-      setCache(a);render();await saveData();showToast(`「${habit.name}」をアーカイブしました`);
+      e.stopPropagation();
+      if(isEditLocked()){showToast('🔒 編集ロック中です');return;}
+      const idx=parseInt(btn.dataset.idx);
+      await archiveHabit(idx);
     });
+  });
+}
+
+// ── 習慣アーカイブ（削除）共通処理 ──
+async function archiveHabit(idx){
+  const a=getCache();const u=a.users.find(uu=>uu.id===a.currentUserId);
+  if(!u||!u.habits[idx])return;
+  const habit=JSON.parse(JSON.stringify(u.habits[idx]));
+  habit.deletedAt=TODAY;if(!u.archive)u.archive=[];
+  u.archive.unshift(habit);u.habits.splice(idx,1);
+  const hkey=(habit.createdAt||'')+'::'+(habit.name||'');
+  if(!u.deletedHabitKeys)u.deletedHabitKeys=[];
+  if(!u.deletedHabitKeys.includes(hkey))u.deletedHabitKeys.push(hkey);
+  setCache(a);render();await saveData();showToast(`「${habit.name}」をアーカイブしました`);
+}
+
+// ── スワイプ削除初期化 ──
+function initHabitSwipe(card,delBg,idx){
+  const THRESHOLD=72;
+  let startX=0,curX=0,swiping=false;
+  card.addEventListener('touchstart',e=>{
+    startX=e.touches[0].clientX;curX=0;swiping=true;
+  },{passive:true});
+  card.addEventListener('touchmove',e=>{
+    if(!swiping)return;
+    const dx=e.touches[0].clientX-startX;
+    if(dx>0){card.style.transform='';delBg.classList.remove('visible');return;}
+    curX=Math.max(dx,-THRESHOLD-20);
+    card.style.transform=`translateX(${curX}px)`;
+    delBg.classList.toggle('visible',-curX>=THRESHOLD*0.5);
+  },{passive:true});
+  card.addEventListener('touchend',()=>{
+    swiping=false;
+    if(-curX>=THRESHOLD){
+      if(isEditLocked()){
+        card.style.transform='';delBg.classList.remove('visible');
+        showToast('🔒 編集ロック中です');return;
+      }
+      card.style.transform='translateX(-100%)';
+      card.style.transition='transform .25s ease';
+      setTimeout(()=>archiveHabit(idx),250);
+    }else{
+      card.style.transform='';delBg.classList.remove('visible');
+    }
   });
 }
 
@@ -2008,6 +2108,7 @@ document.getElementById('back-btn').addEventListener('click',()=>{showScreen('sc
 
 // ── ADD HABIT ──
 async function addHabit(){
+  if(isEditLocked()){showToast('🔒 編集ロック中です');return;}
   const input=document.getElementById('add-input'),name=input.value.trim();if(!name)return;
   const a=getCache();const u=a.users.find(u=>u.id===a.currentUserId);
   u.habits.push({name,logs:{},createdAt:TODAY,type:addType});setCache(a);input.value='';render();
@@ -2405,6 +2506,7 @@ document.getElementById('menu-btn').addEventListener('click',()=>{
   document.getElementById('delete-group-btn').style.display=loadGroups().length>1?'flex':'none';
   document.getElementById('delete-group-label').textContent=cg?`グループ「${cg.name}」を削除`:'このグループを削除';
   document.getElementById('parent-mode-toggle').checked=isParentMode();
+  document.getElementById('edit-lock-toggle').checked=isEditLocked();
   // GAS連携ボタンのdesc更新
   const gasDescEl=document.getElementById('gas-settings-desc');
   if(gasDescEl){const gurl=getGasUrl();gasDescEl.textContent=gurl?'🔗 設定済み（タップして変更）':'未設定（タップして設定）';}
@@ -2426,6 +2528,14 @@ document.getElementById('parent-mode-toggle').addEventListener('change',function
   setParentMode(this.checked);
   if(!this.checked){const p=getPinnedUserId();if(p){const a=getCache();a.currentUserId=p;setCache(a);}}
   renderUserTabs();render();
+});
+document.getElementById('edit-lock-toggle').addEventListener('change',function(){
+  setEditLock(this.checked);
+  if(this.checked)showToast('🔒 編集ロックをONにしました');
+  else showToast('🔓 編集ロックを解除しました');
+});
+document.getElementById('unlock-banner-btn').addEventListener('click',()=>{
+  setEditLock(false);showToast('🔓 編集ロックを解除しました');
 });
 document.getElementById('switch-user-btn').addEventListener('click',()=>{
   overlay.classList.remove('open');
@@ -3403,6 +3513,8 @@ document.getElementById('deleted-groups-btn').addEventListener('click',()=>{
   }
   resetCache();
   if(getGasUrl()){setSyncDot('syncing');}else{setSyncDot('off');}
+  // ロック状態を復元
+  setEditLock(isEditLocked());
 
   // ── 完全初回（フラグなし）→ Step1（グループ選択）を表示 ──
   if(!hasLaunched){
