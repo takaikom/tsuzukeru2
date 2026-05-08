@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>つづける</title>
-<link rel="manifest" href="./manifest_tsuzukeru.json">
+<link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIuOBpOOBpeOBkeOCiyIsCiAgInNob3J0X25hbWUiOiAi44Gk44Gl44GR44KLIiwKICAiZGVzY3JpcHRpb24iOiAi57+S5oWj44OI44Op44OD44Kt44Oz44Kw44Ki44OX44OqIiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNGN0Y0RUYiLAogICJ0aGVtZV9jb2xvciI6ICIjRjdGNEVGIiwKICAib3JpZW50YXRpb24iOiAicG9ydHJhaXQiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJkYXRhOmltYWdlL3N2Zyt4bWwsJTNDc3ZnIHhtbG5zPSUyN2h0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnJTI3IHZpZXdCb3g9JTI3MCAwIDE5MiAxOTIlMjclM0UlM0NyZWN0IHdpZHRoPSUyNzE5MiUyNyBoZWlnaHQ9JTI3MTkyJTI3IHJ4PSUyNzQwJTI3IGZpbGw9JTI3JTIzRDg1QTMwJTI3LyUzRSUzQ3RleHQgeD0lMjc5NiUyNyB5PSUyNzEzMCUyNyBmb250LXNpemU9JTI3MTEwJTI3IHRleHQtYW5jaG9yPSUyN21pZGRsZSUyNyBmaWxsPSUyN3doaXRlJTI3JTNF4pyTJTNDL3RleHQlM0UlM0Mvc3ZnJTNFIiwKICAgICAgInNpemVzIjogIjE5MngxOTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9zdmcreG1sIiwKICAgICAgInB1cnBvc2UiOiAiYW55IG1hc2thYmxlIgogICAgfQogIF0sCiAgImNhdGVnb3JpZXMiOiBbInV0aWxpdGllcyIsICJwcm9kdWN0aXZpdHkiLCAibGlmZXN0eWxlIl0sCiAgImxhbmciOiAiamEiCn0K">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="つづける">
-<link rel="apple-touch-icon" href="./tsuzukeru-icon-192.png">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='40' fill='%23D85A30'/%3E%3Ctext x='96' y='130' font-size='110' text-anchor='middle' fill='white'%3E%E2%9C%93%3C/text%3E%3C/svg%3E">
 <meta name="theme-color" content="#F7F4EF">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -3621,14 +3621,7 @@ document.getElementById('deleted-groups-btn').addEventListener('click',()=>{
     }
   }
 })();
-// ── PWA サービスワーカー登録（ファイルが存在する場合のみ）──
-if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{
-    fetch('./tsuzukeru_sw.js',{method:'HEAD'}).then(r=>{
-      if(r.ok)navigator.serviceWorker.register('./tsuzukeru_sw.js').catch(()=>{});
-    }).catch(()=>{});
-  });
-}
+// ── PWA サービスワーカー：単一ファイル版のため登録なし ──
 </script>
 </body>
 </html>
