@@ -995,7 +995,18 @@ async function saveData(){
 }
 
 // ── SYNC 仕様 ──
-// 送信①: 習慣ログのみGASデータと統合（開いているユーザーのみ対象）
+// ログマージヘルパー: チェック済(true)優先でマージ
+function mergeLogsCheckWins(remLogs, locLogs){
+  const result={...remLogs};
+  Object.keys(locLogs||{}).forEach(k=>{
+    // どちらかがtrueならtrue（チェック済優先）
+    result[k]=!!(result[k]||locLogs[k]);
+  });
+  return result;
+}
+
+// 送信①: 習慣カードと習慣ログのみGASデータと統合（開いているユーザーのみ対象）
+// ログは「チェック済優先」でマージ（ローカル未チェック+GASチェック済 → チェック済を採用）
 async function syncMergeLogsToRemote(){
   if(!getGasUrl()){setSyncDot('off');return false;}
   setSyncDot('syncing');
@@ -1003,40 +1014,46 @@ async function syncMergeLogsToRemote(){
   const local=getCache();
   const curUid=local.currentUserId;
   const cg=getCurrentGroup();
+  const localUser=local.users.find(u=>u.id===curUid);
 
   let baseData;
   if(remote){
-    // リモートを基準に、開いているユーザーのログだけローカルとマージ
     baseData={...remote};
-    const localUser=local.users.find(u=>u.id===curUid);
     if(localUser){
-      baseData.users=(remote.users||[]).map(u=>{
-        if(u.id!==curUid)return u;
-        // ローカルのログをリモートにマージ（ローカル優先）
-        const mergedHabits=(u.habits||[]).map(rh=>{
+      // リモートを基準に、開いているユーザーの習慣カード・ログをマージ
+      const remoteUser=(remote.users||[]).find(u=>u.id===curUid);
+      let mergedHabits;
+      if(remoteUser){
+        // リモート習慣を基準にローカルとマージ（習慣カードはローカル優先、ログはチェック済優先）
+        mergedHabits=(remoteUser.habits||[]).map(rh=>{
           const lh=(localUser.habits||[]).find(h=>h.name===rh.name||h.id===rh.id);
-          if(lh){return{...rh,logs:{...(rh.logs||{}),...(lh.logs||{})}};}
+          if(lh){return{...rh,...lh,logs:mergeLogsCheckWins(rh.logs||{},lh.logs||{})};}
           return rh;
         });
         // ローカルにしかない習慣も追加
         (localUser.habits||[]).forEach(lh=>{
-          if(!mergedHabits.find(h=>h.name===lh.name||h.id===lh.id))mergedHabits.push(lh);
+          if(!mergedHabits.find(h=>h.name===lh.name||h.id===lh.id))mergedHabits.push({...lh});
         });
-        return{...u,habits:mergedHabits,archive:[...(localUser.archive||u.archive||[])]};
-      });
-      // リモートにいないローカルユーザーも追加
-      if(!baseData.users.find(u=>u.id===curUid))baseData.users.push({...localUser});
+      }else{
+        mergedHabits=[...(localUser.habits||[])];
+      }
+      const mergedUser={...(remoteUser||localUser),...localUser,habits:mergedHabits};
+      const newUsers=(remote.users||[]).map(u=>u.id===curUid?mergedUser:u);
+      if(!newUsers.find(u=>u.id===curUid))newUsers.push(mergedUser);
+      baseData={...remote,users:newUsers};
     }
   }else{
-    // リモートがなければローカルデータをそのまま送信
-    baseData={...local};
+    // リモートがなければローカルデータをそのまま送信（開いているユーザーのみ）
+    baseData={...local,users:localUser?[{...localUser}]:[]};
   }
   if(cg)baseData.groupName=cg.name;
   const ok=await remoteSave(baseData);
   return ok;
 }
 
-// 送信②: デバイスの情報で完全上書き（開いているユーザーのみ対象、他ユーザーのGASデータは保護）
+// 送信②: GASデータをデバイスの情報（習慣カード、習慣ログ、すべての設定）で完全上書き
+// 開いているユーザーのみ対象（他ユーザーのGASデータは変更しない）
+// ローカル未チェック+GASチェック済でも、ローカルの未チェックで上書き
 async function syncOverwriteCurrentUserToRemote(){
   if(!getGasUrl()){setSyncDot('off');return false;}
   setSyncDot('syncing');
@@ -1048,14 +1065,18 @@ async function syncOverwriteCurrentUserToRemote(){
 
   let baseData;
   if(remote){
-    // リモートを基準に、開いているユーザーのみローカルで完全上書き
+    // リモートを基準に、開いているユーザーのみローカルで完全上書き（すべての設定も含む）
     const newUsers=(remote.users||[]).map(u=>{
       if(u.id===curUid)return localUser?{...localUser}:u;
       return u;
     });
-    // ローカルにいてリモートにいないユーザーも追加
     if(localUser&&!newUsers.find(u=>u.id===curUid))newUsers.push({...localUser});
-    baseData={...remote,users:newUsers};
+    // deletedUsersはローカルとリモートをマージ
+    const remDeleted=remote.deletedUsers||[];
+    const locDeleted=local.deletedUsers||[];
+    const mergedDeleted=[...locDeleted];
+    remDeleted.forEach(ru=>{if(!mergedDeleted.find(u=>u.id===ru.id))mergedDeleted.push(ru);});
+    baseData={...remote,users:newUsers,deletedUsers:mergedDeleted};
   }else{
     baseData={...local};
   }
@@ -1064,7 +1085,11 @@ async function syncOverwriteCurrentUserToRemote(){
   return ok;
 }
 
-// 受信: 全ユーザーのGASデータをローカルと統合（ローカルデータが消えないようにする）
+// 受信: 全ユーザーのGASデータをローカルと統合
+// ・ログはチェック済優先（GASチェック済 > ローカル未チェック）
+// ・ローカルデータが消えないようにする（ローカル新規カードも残す）
+// ・GASに新規カードがあればそれを反映
+// ・GASにある新規ユーザーデータも反映
 async function syncFromRemote(silent=false){
   if(!getGasUrl()){setSyncDot('off');return;}
   if(!silent)setSyncDot('syncing');
@@ -1072,40 +1097,52 @@ async function syncFromRemote(silent=false){
   const local=getCache();
   const merged={...local};
 
-  // deletedUsersはローカルとリモートをマージ（両方のを保持）
+  // deletedUsersはローカルとリモートをマージ（両方を保持）
   const remoteDeleted=remote.deletedUsers||[];
   const localDeleted=(merged.deletedUsers||[]).slice();
   remoteDeleted.forEach(ru=>{if(!localDeleted.find(u=>u.id===ru.id))localDeleted.push(ru);});
   merged.deletedUsers=localDeleted;
 
-  // 全ユーザーをマージ: リモートを基準に、ローカルにしかないユーザーも保持
+  // 全ユーザーをマージ
   const newUsers=[];
+
+  // GASのユーザーを処理（GASにある新規ユーザーも反映）
   (remote.users||[]).forEach(ru=>{
-    if(merged.deletedUsers.find(u=>u.id===ru.id))return;
+    if(merged.deletedUsers.find(u=>u.id===ru.id))return; // 削除済みはスキップ
     ru.habits=(ru.habits||[]).map(migrateHabit);
     ru.archive=(ru.archive||[]).map(migrateHabit);
     const lu=merged.users.find(u=>u.id===ru.id);
-    // リモートデータを基準にするが、ローカルのログも保持（ローカル優先でマージ）
     if(lu){
+      // 両方に存在するユーザー: 習慣カードをマージ（GAS基準+ローカル新規）、ログはチェック済優先
       const mergedHabits=(ru.habits||[]).map(rh=>{
         const lh=(lu.habits||[]).find(h=>h.id===rh.id||h.name===rh.name);
-        if(lh){return{...rh,logs:{...(rh.logs||{}),...(lh.logs||{})}};}
-        return rh;
+        if(lh){
+          // 習慣カード情報はGASを基準にローカルの更新を適用、ログはチェック済優先
+          return{...rh,...lh,logs:mergeLogsCheckWins(rh.logs||{},lh.logs||{})};
+        }
+        return rh; // GASにしかない習慣はGASのまま
       });
-      // ローカルにしかない習慣も追加
+      // ローカルにしかない習慣も追加（ローカル新規カードを保持）
       (lu.habits||[]).forEach(lh=>{
-        if(!mergedHabits.find(h=>h.id===lh.id||h.name===lh.name))mergedHabits.push(lh);
+        if(!mergedHabits.find(h=>h.id===lh.id||h.name===lh.name))mergedHabits.push({...lh});
       });
-      // 注意: ...ru より後に habits を指定してマージ結果を確実に使う
-      newUsers.push({...lu,...ru,habits:mergedHabits,archive:ru.archive||lu.archive||[]});
+      // ローカルに新規追加した習慣も削除済みキーでフィルタ（不要な復活を防ぐ）
+      const delKeys=lu.deletedHabitKeys||ru.deletedHabitKeys||[];
+      const finalHabits=mergedHabits.filter(h=>{
+        const k=(h.createdAt||'')+'::'+(h.name||'');
+        return!delKeys.includes(k);
+      });
+      newUsers.push({...lu,...ru,habits:finalHabits,archive:ru.archive||lu.archive||[],deletedHabitKeys:delKeys});
     }else{
-      newUsers.push(ru);
+      // GASにしかいないユーザー（新規ユーザー）はそのまま追加
+      newUsers.push({...ru});
     }
   });
-  // リモートに存在しないローカルユーザーを追加（削除済みは除く）
+
+  // ローカルにしかいないユーザーも保持（削除済みは除く）
   merged.users.forEach(lu=>{
     if(!newUsers.find(u=>u.id===lu.id)&&!merged.deletedUsers.find(u=>u.id===lu.id)){
-      newUsers.push(lu);
+      newUsers.push({...lu});
     }
   });
   merged.users=newUsers;
@@ -1116,18 +1153,18 @@ async function syncFromRemote(silent=false){
     const g=groups.find(g=>g.id===id);
     if(g&&g.gasUrl&&remote.groupName!==g.name){g.name=remote.groupName;saveGroups(groups);}
   }
-  setCache(merged);
-  // 親モードで選択中のタブが引き続き有効なら currentUserId を保持する。
+
+  // currentUserIdの有効性チェック（受信後も開いているユーザーを維持）
   const pinned=getPinnedUserId();
-  const currentIsValid=!!merged.users.find(u=>u.id===merged.currentUserId);
+  const currentIsValid=!!newUsers.find(u=>u.id===merged.currentUserId);
   if(!currentIsValid){
-    if(pinned&&merged.users.find(u=>u.id===pinned)){
+    if(pinned&&newUsers.find(u=>u.id===pinned)){
       merged.currentUserId=pinned;
-    }else if(merged.users.length){
-      merged.currentUserId=merged.users[0].id;
+    }else if(newUsers.length){
+      merged.currentUserId=newUsers[0].id;
     }
-    setCache(merged);
   }
+  setCache(merged);
   renderGroupTabs();renderUserTabs();render();
   if(!silent)setSyncDot('ok');
 }
@@ -1414,6 +1451,7 @@ async function renderWelcomeStep2(group){
       btn.addEventListener('click',()=>{
         setPinnedUserId(u.id);
         const a=getCache();a.currentUserId=u.id;setCache(a);
+        refreshGasStatus();startPeriodicSync();
         showScreen('screen-list');renderGroupTabs();renderUserTabs();render();
       });
       list.appendChild(btn);
@@ -1433,17 +1471,28 @@ async function renderWelcomeStep2(group){
         document.getElementById('welcome-group-title').textContent=group.name;
       }
       const local=getCache();
-      const merged={...remote};
+      const merged={...local}; // ローカルをベースに（currentUserIdなどを保持）
       const mergedDeleted=[...(local.deletedUsers||[])];
       (remote.deletedUsers||[]).forEach(ru=>{if(!mergedDeleted.find(u=>u.id===ru.id))mergedDeleted.push(ru);});
       merged.deletedUsers=mergedDeleted;
-      merged.users=(merged.users||[]).filter(ru=>!mergedDeleted.find(u=>u.id===ru.id));
-      local.users.forEach(lu=>{
-        if(!merged.users.find(ru=>ru.id===lu.id)&&!mergedDeleted.find(u=>u.id===lu.id))merged.users.push(lu);
+      // ユーザーをマージ（チェック済優先ログマージ）
+      const newUsers=[];
+      (remote.users||[]).filter(ru=>!mergedDeleted.find(u=>u.id===ru.id)).forEach(ru=>{
+        ru.habits=(ru.habits||[]).map(migrateHabit);ru.archive=(ru.archive||[]).map(migrateHabit);
+        const lu=local.users.find(u=>u.id===ru.id);
+        if(lu){
+          const mHabits=(ru.habits||[]).map(rh=>{
+            const lh=(lu.habits||[]).find(h=>h.id===rh.id||h.name===rh.name);
+            if(lh)return{...rh,...lh,logs:mergeLogsCheckWins(rh.logs||{},lh.logs||{})};
+            return rh;
+          });
+          (lu.habits||[]).forEach(lh=>{if(!mHabits.find(h=>h.id===lh.id||h.name===lh.name))mHabits.push({...lh});});
+          newUsers.push({...lu,...ru,habits:mHabits,archive:ru.archive||lu.archive||[]});
+        }else{newUsers.push({...ru});}
       });
-      merged.currentUserId=local.currentUserId;
+      local.users.forEach(lu=>{if(!newUsers.find(u=>u.id===lu.id)&&!mergedDeleted.find(u=>u.id===lu.id))newUsers.push({...lu});});
+      merged.users=newUsers;
       if(!merged.users.find(u=>u.id===merged.currentUserId))merged.currentUserId=merged.users[0]?.id||'';
-      (merged.users||[]).forEach(u=>{u.habits=(u.habits||[]).map(migrateHabit);u.archive=(u.archive||[]).map(migrateHabit);});
       setCache(merged);setSyncDot('ok');
     }else{
       setSyncDot('err');
@@ -1478,16 +1527,25 @@ document.getElementById('welcome-gas-save-btn').addEventListener('click',async()
     groups.push(existingGroup);saveGroups(groups);
   }
   setCurrentGroupId(existingGroup.id);resetCache();
-  // リモートデータをマージして保存
+  // リモートデータをマージして保存（チェック済優先）
   const local=getCache();
-  const merged={...remote,groupName:remoteName};
+  const merged={...local,groupName:remoteName};
   const mergedDeleted=[...(local.deletedUsers||[])];
   (remote.deletedUsers||[]).forEach(ru=>{if(!mergedDeleted.find(u=>u.id===ru.id))mergedDeleted.push(ru);});
   merged.deletedUsers=mergedDeleted;
-  merged.users=(merged.users||[]).filter(ru=>!mergedDeleted.find(u=>u.id===ru.id));
-  local.users.forEach(lu=>{if(!merged.users.find(ru=>ru.id===lu.id)&&!mergedDeleted.find(u=>u.id===lu.id))merged.users.push(lu);});
+  const newUsersGas=[];
+  (remote.users||[]).filter(ru=>!mergedDeleted.find(u=>u.id===ru.id)).forEach(ru=>{
+    ru.habits=(ru.habits||[]).map(migrateHabit);ru.archive=(ru.archive||[]).map(migrateHabit);
+    const lu=local.users.find(u=>u.id===ru.id);
+    if(lu){
+      const mH=(ru.habits||[]).map(rh=>{const lh=(lu.habits||[]).find(h=>h.id===rh.id||h.name===rh.name);if(lh)return{...rh,...lh,logs:mergeLogsCheckWins(rh.logs||{},lh.logs||{})};return rh;});
+      (lu.habits||[]).forEach(lh=>{if(!mH.find(h=>h.id===lh.id||h.name===lh.name))mH.push({...lh});});
+      newUsersGas.push({...lu,...ru,habits:mH,archive:ru.archive||lu.archive||[]});
+    }else{newUsersGas.push({...ru});}
+  });
+  local.users.forEach(lu=>{if(!newUsersGas.find(u=>u.id===lu.id)&&!mergedDeleted.find(u=>u.id===lu.id))newUsersGas.push({...lu});});
+  merged.users=newUsersGas;
   merged.currentUserId=local.currentUserId||merged.users[0]?.id||'';
-  (merged.users||[]).forEach(u=>{u.habits=(u.habits||[]).map(migrateHabit);u.archive=(u.archive||[]).map(migrateHabit);});
   setCache(merged);setSyncDot('ok');
   gasStatus.textContent='✅ 同期しました！グループを選んでください';
   // グループ一覧を再描画してStep1を更新
@@ -2408,7 +2466,7 @@ async function gasUploadMerge(){
           const rh=myHabitMap.get(key);
           // サーバーにも同じ習慣があればログをマージ（どちらかにあれば残す）
           const serverHabit=(ru.habits||[]).find(h=>h.name+'::'+(h.type||'daily')===key);
-          const mergedLogs=Object.assign({},serverHabit?serverHabit.logs||{}:{},lh.logs||{});
+          const mergedLogs=mergeLogsCheckWins(serverHabit?serverHabit.logs||{}:{},lh.logs||{});
           return{...lh,logs:mergedLogs};
         });
         return{
@@ -2630,7 +2688,10 @@ document.getElementById('switch-user-btn').addEventListener('click',()=>{
   // ピンをクリアしてウェルカムStep2（ユーザー選択）へ
   setPinnedUserId('');
   const cg=getCurrentGroup();
-  if(cg){renderWelcomeStep2(cg).then(()=>showScreen('screen-welcome'));}
+  if(cg){
+    showScreen('screen-welcome'); // 先に画面を切り替え
+    renderWelcomeStep2(cg);       // その後非同期でGAS取得・描画
+  }
   else{renderWelcomeStep1();showScreen('screen-welcome');}
 });
 document.getElementById('rename-group-btn').addEventListener('click',()=>{
