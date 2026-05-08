@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>つづける</title>
+<link rel="manifest" href="./manifest_tsuzukeru.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="つづける">
+<link rel="apple-touch-icon" href="./tsuzukeru-icon-192.png">
+<meta name="theme-color" content="#F7F4EF">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -170,11 +177,14 @@
   .habit-hover-del:hover{background:#FCEBEB;color:#E24B4A;border-color:#E24B4A;}
   @media (hover:none){.habit-hover-del{display:none !important;}}
 
-  /* EDIT LOCK BANNER */
-  .edit-lock-banner{display:none;align-items:center;justify-content:center;gap:6px;padding:5px 16px;background:var(--amber-light);border-bottom:1px solid var(--amber);font-size:12px;color:var(--amber);font-weight:500;}
-  .edit-lock-banner.visible{display:flex;}
-  .edit-lock-banner button{padding:2px 10px;border-radius:6px;border:1px solid var(--amber);background:transparent;color:var(--amber);font-family:inherit;font-size:11px;cursor:pointer;font-weight:700;}
-  .edit-lock-banner button:active{background:var(--amber-light);}
+  /* EDIT LOCK BANNER - 非表示（バナー解除ボタンは廃止） */
+  .edit-lock-banner{display:none !important;}
+  /* 習慣リストヘッダー行 */
+  .habit-list-header{display:flex;align-items:center;justify-content:space-between;margin:16px 0 8px;}
+  .habit-list-header .section-label{margin:0;}
+  .lock-toggle-btn{padding:3px 10px;border-radius:8px;border:1.5px solid var(--border2);background:var(--surface2);color:var(--text3);font-family:'Noto Sans JP',sans-serif;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px;-webkit-tap-highlight-color:transparent;transition:border-color .15s,background .15s,color .15s;}
+  .lock-toggle-btn.locked{border-color:var(--amber);background:var(--amber-light);color:var(--amber);}
+  .lock-toggle-btn:active{opacity:.7;}
 
   /* Inline rename */
   .rename-form{flex-direction:column;gap:8px;margin-top:8px;}
@@ -515,12 +525,12 @@
       </div>
     </div>
   </div>
-  <div class="edit-lock-banner" id="edit-lock-banner">
-    🔒 編集ロック中（削除・編集・追加が無効）
-    <button id="unlock-banner-btn">解除</button>
-  </div>
+  <div class="edit-lock-banner" id="edit-lock-banner"></div>
   <div class="main">
-    <div class="section-label">習慣リスト</div>
+    <div class="habit-list-header">
+      <div class="section-label">習慣リスト</div>
+      <button class="lock-toggle-btn" id="lock-toggle-btn" title="編集ロック切り替え">🔓 ロック</button>
+    </div>
     <div class="habit-list" id="habit-list"></div>
   </div>
   <div class="add-bar">
@@ -754,14 +764,6 @@
     </button>
 
     <hr class="sheet-divider">
-    <div class="toggle-row" id="edit-lock-toggle-row">
-      <div class="toggle-left">
-        <div class="btn-icon" style="background:var(--amber-light);">🔒</div>
-        <div><div class="toggle-label">編集ロック</div><div class="toggle-desc">習慣の削除・編集・追加を禁止にする（子どもの誤操作防止）</div></div>
-      </div>
-      <label class="toggle"><input type="checkbox" id="edit-lock-toggle"><span class="toggle-track"></span></label>
-    </div>
-    <hr class="sheet-divider">
     <button class="sheet-btn" id="archive-btn">
       <div class="btn-icon archive">🗂️</div>
       <div><div>削除した習慣 <span id="archive-badge" style="display:none;background:var(--accent);color:white;border-radius:99px;font-size:11px;padding:1px 7px;margin-left:4px;"></span></div><div class="btn-desc">アーカイブから復元できます</div></div>
@@ -808,26 +810,28 @@ const GROUPS_KEY='tsuzukeru_groups';   // [{id,name,gasUrl}]
 const CURRENT_GROUP_KEY='tsuzukeru_current_group';
 const PINNED_KEY='tsuzukeru_pinned_user';
 const PARENT_KEY='tsuzukeru_parent_mode';
-const EDIT_LOCK_KEY='tsuzukeru_edit_lock';
+const EDIT_LOCK_PREFIX='tsuzukeru_edit_lock_'; // ユーザーごとのロック設定
 const TYPES=['daily','occasional','quit']; // 毎日・ときどき・やめる！
 
-function isEditLocked(){return localStorage.getItem(EDIT_LOCK_KEY)==='1';}
+function getEditLockKey(){
+  // 現在のグループID＋ピンユーザーIDでキーを作成（ユーザーごとの設定）
+  const gid=getCurrentGroupId();
+  const uid=getPinnedUserId()||'default';
+  return EDIT_LOCK_PREFIX+gid+'_'+uid;
+}
+function isEditLocked(){return localStorage.getItem(getEditLockKey())==='1';}
 function setEditLock(val){
-  localStorage.setItem(EDIT_LOCK_KEY,val?'1':'0');
-  const banner=document.getElementById('edit-lock-banner');
-  if(banner){banner.classList.toggle('visible',!!val);}
+  localStorage.setItem(getEditLockKey(),val?'1':'0');
+  // バナーは非表示のまま（廃止）
   const toggle=document.getElementById('edit-lock-toggle');
   if(toggle){toggle.checked=!!val;}
-  // 追加フォームの有効/無効
-  const addInput=document.getElementById('add-input');
-  const addBtn=document.getElementById('add-btn');
-  const addTypeBtn=document.getElementById('add-type-btn');
-  if(addInput)addInput.disabled=!!val;
-  if(addBtn)addBtn.disabled=!!val;
-  if(addTypeBtn)addTypeBtn.disabled=!!val;
-  if(addInput)addInput.style.opacity=val?'0.4':'';
-  if(addBtn)addBtn.style.opacity=val?'0.4':'';
-  if(addTypeBtn)addTypeBtn.style.opacity=val?'0.4':'';
+  // ロックボタンの表示更新
+  const lockBtn=document.getElementById('lock-toggle-btn');
+  if(lockBtn){
+    lockBtn.textContent=val?'🔒 ロック中':'🔓 ロック';
+    lockBtn.classList.toggle('locked',!!val);
+  }
+  // 追加フォームはロック中も使用可能（追加は許可）
 }
 
 function localDateStr(d){const dt=d||new Date();return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
@@ -878,6 +882,8 @@ function startPeriodicSync(){
   if(!min||min<=0||!getGasUrl()||!getAutoSync())return;
   _periodicSyncTimer=setInterval(async()=>{
     if(!getGasUrl()||!getAutoSync())return;
+    // 自動更新: 送信①（ログ統合）→ 受信（全ユーザー統合）
+    await syncMergeLogsToRemote();
     await syncFromRemote(true);
     const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
     setGasSyncTime('auto',now);
@@ -976,23 +982,92 @@ let _isSyncing=false;
 async function saveData(){
   const all=getCache();
   saveLocal(all); // ローカルは必ず即時保存
-  if(getGasUrl()){
-    const cg=getCurrentGroup();
-    const dataToSave=cg?{...all,groupName:cg.name}:all;
-    // 非同期でリモート保存（ローカルへの保存は既に完了済み）
-    remoteSave(dataToSave).then(ok=>{if(!ok)setSyncDot('err');}).catch(()=>setSyncDot('err'));
-  }
+  // 自動送信は行わない（手動ボタンか自動更新で行う）
 }
 
-// ── SYNC ──
-// 同期対象：開いているユーザーのみ完全同期（リモートで上書き）。他のユーザーはリモートデータをそのまま維持。
+// ── SYNC 仕様 ──
+// 送信①: 習慣ログのみGASデータと統合（開いているユーザーのみ対象）
+async function syncMergeLogsToRemote(){
+  if(!getGasUrl()){setSyncDot('off');return false;}
+  setSyncDot('syncing');
+  const remote=await remoteLoad();
+  const local=getCache();
+  const curUid=local.currentUserId;
+  const cg=getCurrentGroup();
+
+  let baseData;
+  if(remote){
+    // リモートを基準に、開いているユーザーのログだけローカルとマージ
+    baseData={...remote};
+    const remoteUser=((remote.users||[]).find(u=>u.id===curUid));
+    const localUser=local.users.find(u=>u.id===curUid);
+    if(remoteUser&&localUser){
+      // ログをマージ（ローカル優先でリモートに追記）
+      const mergedLogs={...(remoteUser.logs||{})};
+      (localUser.habits||[]).forEach(lh=>{
+        const rh=((remoteUser.habits||[]).find(h=>h.name===lh.name||h.id===lh.id));
+        if(rh){Object.assign(rh.logs=rh.logs||{},lh.logs||{});}
+      });
+      baseData.users=(remote.users||[]).map(u=>{
+        if(u.id!==curUid)return u;
+        // ローカルのログをリモートにマージ
+        const merged={...u};
+        merged.habits=(u.habits||[]).map(rh=>{
+          const lh=(localUser.habits||[]).find(h=>h.name===rh.name||h.id===rh.id);
+          if(lh){return{...rh,logs:{...(rh.logs||{}),...(lh.logs||{})}};}
+          return rh;
+        });
+        // ローカルにしかない習慣も追加
+        (localUser.habits||[]).forEach(lh=>{
+          if(!merged.habits.find(h=>h.name===lh.name||h.id===lh.id))merged.habits.push(lh);
+        });
+        merged.archive={...(u.archive||[])};
+        return merged;
+      });
+    }
+  }else{
+    // リモートがなければローカルデータをそのまま送信
+    baseData={...local};
+  }
+  if(cg)baseData.groupName=cg.name;
+  const ok=await remoteSave(baseData);
+  return ok;
+}
+
+// 送信②: デバイスの情報で完全上書き（開いているユーザーのみ対象、他ユーザーのGASデータは保護）
+async function syncOverwriteCurrentUserToRemote(){
+  if(!getGasUrl()){setSyncDot('off');return false;}
+  setSyncDot('syncing');
+  const remote=await remoteLoad();
+  const local=getCache();
+  const curUid=local.currentUserId;
+  const cg=getCurrentGroup();
+  const localUser=local.users.find(u=>u.id===curUid);
+
+  let baseData;
+  if(remote){
+    // リモートを基準に、開いているユーザーのみローカルで完全上書き
+    const newUsers=(remote.users||[]).map(u=>{
+      if(u.id===curUid)return localUser?{...localUser}:u;
+      return u;
+    });
+    // ローカルにいてリモートにいないユーザーも追加
+    if(localUser&&!newUsers.find(u=>u.id===curUid))newUsers.push({...localUser});
+    baseData={...remote,users:newUsers};
+  }else{
+    baseData={...local};
+  }
+  if(cg)baseData.groupName=cg.name;
+  const ok=await remoteSave(baseData);
+  return ok;
+}
+
+// 受信: 全ユーザーのGASデータをローカルと統合（ローカルデータが消えないようにする）
 async function syncFromRemote(silent=false){
   if(!getGasUrl()){setSyncDot('off');return;}
   if(!silent)setSyncDot('syncing');
   const remote=await remoteLoad();if(!remote){if(!silent)setSyncDot('err');return;}
   const local=getCache();
-  // 対象：開いているタブのユーザー（currentUserId）のみ完全同期
-  const curUid=local.currentUserId;
   const merged={...local};
 
   // deletedUsersはローカルとリモートをマージ（両方のを保持）
@@ -1001,20 +1076,26 @@ async function syncFromRemote(silent=false){
   remoteDeleted.forEach(ru=>{if(!localDeleted.find(u=>u.id===ru.id))localDeleted.push(ru);});
   merged.deletedUsers=localDeleted;
 
-  // リモートのusers一覧を基準にする（他ユーザーはリモートデータをそのまま維持）
+  // 全ユーザーをマージ: リモートを基準に、ローカルにしかないユーザーも保持
   const newUsers=[];
   (remote.users||[]).forEach(ru=>{
     if(merged.deletedUsers.find(u=>u.id===ru.id))return;
-    if(ru.id===curUid){
-      // 開いているユーザーのみ完全同期：習慣・ログ・並び順をリモートで上書き
-      const lu=merged.users.find(u=>u.id===ru.id)||{};
-      ru.habits=(ru.habits||[]).map(migrateHabit);
-      ru.archive=(ru.archive||[]).map(migrateHabit);
-      newUsers.push({...lu,...ru,habits:ru.habits,archive:ru.archive});
+    ru.habits=(ru.habits||[]).map(migrateHabit);
+    ru.archive=(ru.archive||[]).map(migrateHabit);
+    const lu=merged.users.find(u=>u.id===ru.id);
+    // リモートデータを基準にするが、ローカルのログも保持（ローカル優先でマージ）
+    if(lu){
+      const mergedHabits=(ru.habits||[]).map(rh=>{
+        const lh=(lu.habits||[]).find(h=>h.id===rh.id||h.name===rh.name);
+        if(lh){return{...rh,logs:{...(rh.logs||{}),...(lh.logs||{})}};}
+        return rh;
+      });
+      // ローカルにしかない習慣も追加
+      (lu.habits||[]).forEach(lh=>{
+        if(!mergedHabits.find(h=>h.id===lh.id||h.name===lh.name))mergedHabits.push(lh);
+      });
+      newUsers.push({...lu,...ru,habits:mergedHabits});
     }else{
-      // 他のユーザー：リモートデータをそのまま使用
-      ru.habits=(ru.habits||[]).map(migrateHabit);
-      ru.archive=(ru.archive||[]).map(migrateHabit);
       newUsers.push(ru);
     }
   });
@@ -1034,7 +1115,6 @@ async function syncFromRemote(silent=false){
   }
   setCache(merged);
   // 親モードで選択中のタブが引き続き有効なら currentUserId を保持する。
-  // 無効になっていた場合のみピンユーザーへフォールバック。
   const pinned=getPinnedUserId();
   const currentIsValid=!!merged.users.find(u=>u.id===merged.currentUserId);
   if(!currentIsValid){
@@ -1683,6 +1763,8 @@ document.getElementById('add-type-btn').addEventListener('click',()=>{
 
 // ── RENDER LIST ──
 function render(){
+  // ロック状態をユーザーごとに更新
+  setEditLock(isEditLocked());
   const {habits}=getUserData();
   const now=new Date();const wd=['日','月','火','水','木','金','土'][now.getDay()];
   document.getElementById('date-display').textContent=`${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日（${wd}）`;
@@ -2506,7 +2588,6 @@ document.getElementById('menu-btn').addEventListener('click',()=>{
   document.getElementById('delete-group-btn').style.display=loadGroups().length>1?'flex':'none';
   document.getElementById('delete-group-label').textContent=cg?`グループ「${cg.name}」を削除`:'このグループを削除';
   document.getElementById('parent-mode-toggle').checked=isParentMode();
-  document.getElementById('edit-lock-toggle').checked=isEditLocked();
   // GAS連携ボタンのdesc更新
   const gasDescEl=document.getElementById('gas-settings-desc');
   if(gasDescEl){const gurl=getGasUrl();gasDescEl.textContent=gurl?'🔗 設定済み（タップして変更）':'未設定（タップして設定）';}
@@ -2529,13 +2610,12 @@ document.getElementById('parent-mode-toggle').addEventListener('change',function
   if(!this.checked){const p=getPinnedUserId();if(p){const a=getCache();a.currentUserId=p;setCache(a);}}
   renderUserTabs();render();
 });
-document.getElementById('edit-lock-toggle').addEventListener('change',function(){
-  setEditLock(this.checked);
-  if(this.checked)showToast('🔒 編集ロックをONにしました');
+// ロックボタン（習慣リストヘッダー）
+document.getElementById('lock-toggle-btn').addEventListener('click',()=>{
+  const newVal=!isEditLocked();
+  setEditLock(newVal);
+  if(newVal)showToast('🔒 編集ロックをONにしました');
   else showToast('🔓 編集ロックを解除しました');
-});
-document.getElementById('unlock-banner-btn').addEventListener('click',()=>{
-  setEditLock(false);showToast('🔓 編集ロックを解除しました');
 });
 document.getElementById('switch-user-btn').addEventListener('click',()=>{
   overlay.classList.remove('open');
@@ -3513,8 +3593,7 @@ document.getElementById('deleted-groups-btn').addEventListener('click',()=>{
   }
   resetCache();
   if(getGasUrl()){setSyncDot('syncing');}else{setSyncDot('off');}
-  // ロック状態を復元
-  setEditLock(isEditLocked());
+  // ロック状態の初期表示はユーザー確定後に行う（後でsetEditLock呼び出し）
 
   // ── 完全初回（フラグなし）→ Step1（グループ選択）を表示 ──
   if(!hasLaunched){
@@ -3527,7 +3606,8 @@ document.getElementById('deleted-groups-btn').addEventListener('click',()=>{
     // ピン有効 → そのままメイン画面へ
     all.currentUserId=pinned;setCache(all);
     if(getGasUrl()&&getAutoSync()){
-      syncFromRemote(true).then(()=>{
+      // 自動更新: 送信①（ログ統合）→ 受信（全ユーザー統合）
+      syncMergeLogsToRemote().then(()=>syncFromRemote(true)).then(()=>{
         const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
         setGasSyncTime('auto',now);
       });
@@ -3544,6 +3624,14 @@ document.getElementById('deleted-groups-btn').addEventListener('click',()=>{
     }
   }
 })();
+// ── PWA サービスワーカー登録（ファイルが存在する場合のみ）──
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    fetch('./tsuzukeru_sw.js',{method:'HEAD'}).then(r=>{
+      if(r.ok)navigator.serviceWorker.register('./tsuzukeru_sw.js').catch(()=>{});
+    }).catch(()=>{});
+  });
+}
 </script>
 </body>
 </html>
