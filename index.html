@@ -982,7 +982,10 @@ let _isSyncing=false;
 async function saveData(){
   const all=getCache();
   saveLocal(all); // ローカルは必ず即時保存
-  // 自動送信は行わない（手動ボタンか自動更新で行う）
+  // GASが設定されている場合は自動で送信①（ログ統合）を実行
+  if(getGasUrl()){
+    syncMergeLogsToRemote().catch(()=>setSyncDot('err'));
+  }
 }
 
 // ── SYNC 仕様 ──
@@ -999,31 +1002,24 @@ async function syncMergeLogsToRemote(){
   if(remote){
     // リモートを基準に、開いているユーザーのログだけローカルとマージ
     baseData={...remote};
-    const remoteUser=((remote.users||[]).find(u=>u.id===curUid));
     const localUser=local.users.find(u=>u.id===curUid);
-    if(remoteUser&&localUser){
-      // ログをマージ（ローカル優先でリモートに追記）
-      const mergedLogs={...(remoteUser.logs||{})};
-      (localUser.habits||[]).forEach(lh=>{
-        const rh=((remoteUser.habits||[]).find(h=>h.name===lh.name||h.id===lh.id));
-        if(rh){Object.assign(rh.logs=rh.logs||{},lh.logs||{});}
-      });
+    if(localUser){
       baseData.users=(remote.users||[]).map(u=>{
         if(u.id!==curUid)return u;
-        // ローカルのログをリモートにマージ
-        const merged={...u};
-        merged.habits=(u.habits||[]).map(rh=>{
+        // ローカルのログをリモートにマージ（ローカル優先）
+        const mergedHabits=(u.habits||[]).map(rh=>{
           const lh=(localUser.habits||[]).find(h=>h.name===rh.name||h.id===rh.id);
           if(lh){return{...rh,logs:{...(rh.logs||{}),...(lh.logs||{})}};}
           return rh;
         });
         // ローカルにしかない習慣も追加
         (localUser.habits||[]).forEach(lh=>{
-          if(!merged.habits.find(h=>h.name===lh.name||h.id===lh.id))merged.habits.push(lh);
+          if(!mergedHabits.find(h=>h.name===lh.name||h.id===lh.id))mergedHabits.push(lh);
         });
-        merged.archive={...(u.archive||[])};
-        return merged;
+        return{...u,habits:mergedHabits,archive:[...(localUser.archive||u.archive||[])]};
       });
+      // リモートにいないローカルユーザーも追加
+      if(!baseData.users.find(u=>u.id===curUid))baseData.users.push({...localUser});
     }
   }else{
     // リモートがなければローカルデータをそのまま送信
@@ -1094,7 +1090,8 @@ async function syncFromRemote(silent=false){
       (lu.habits||[]).forEach(lh=>{
         if(!mergedHabits.find(h=>h.id===lh.id||h.name===lh.name))mergedHabits.push(lh);
       });
-      newUsers.push({...lu,...ru,habits:mergedHabits});
+      // 注意: ...ru より後に habits を指定してマージ結果を確実に使う
+      newUsers.push({...lu,...ru,habits:mergedHabits,archive:ru.archive||lu.archive||[]});
     }else{
       newUsers.push(ru);
     }
