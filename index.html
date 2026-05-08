@@ -928,8 +928,14 @@ function setSyncDot(state){
 // ── REMOTE ──
 async function remoteLoad(url){
   const u=url||getGasUrl();if(!u)return null;
-  try{const res=await fetch(u,{cache:'no-store'});const data=await res.json();return data&&data.users?data:null;}
-  catch{return null;}
+  try{
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),8000);
+    const res=await fetch(u,{cache:'no-store',signal:controller.signal});
+    clearTimeout(timer);
+    const data=await res.json();
+    return data&&data.users?data:null;
+  }catch{return null;}
 }
 async function remoteSave(data){
   const url=getGasUrl();if(!url)return false;
@@ -1394,13 +1400,33 @@ async function renderWelcomeStep2(group){
   step2.style.display='flex';step2.style.flexDirection='column';
   document.getElementById('welcome-group-title').textContent=group.name;
 
-  // GASがあればリモートから取得
+  // まずローカルのユーザー一覧を即座に表示
+  function renderUserList(){
+    document.getElementById('welcome-user-sub').textContent='あなたはだれですか？（選択するとこのスマホに固定されます）';
+    const all=getCache();
+    const sec=document.getElementById('welcome-existing-section');
+    const list=document.getElementById('welcome-user-list');list.innerHTML='';
+    sec.style.display=all.users.length?'block':'none';
+    all.users.forEach(u=>{
+      const btn=document.createElement('button');
+      btn.className='welcome-item-btn';
+      btn.innerHTML=escHtml(u.name)+'<span style="color:var(--text3);font-size:16px;">→</span>';
+      btn.addEventListener('click',()=>{
+        setPinnedUserId(u.id);
+        const a=getCache();a.currentUserId=u.id;setCache(a);
+        showScreen('screen-list');renderGroupTabs();renderUserTabs();render();
+      });
+      list.appendChild(btn);
+    });
+  }
+  renderUserList();
+
+  // GASがあればバックグラウンドでリモートから取得して再描画
   if(group.gasUrl){
-    document.getElementById('welcome-user-sub').textContent='データを読み込み中…';
+    document.getElementById('welcome-user-sub').textContent='データを読み込み中…（そのまま選択しても大丈夫です）';
     setSyncDot('syncing');
     const remote=await remoteLoad(group.gasUrl);
     if(remote){
-      // グループ名をリモートから反映
       if(remote.groupName&&remote.groupName!==group.name){
         const groups=loadGroups();const g=groups.find(g=>g.id===group.id);
         if(g){g.name=remote.groupName;saveGroups(groups);group=g;}
@@ -1408,13 +1434,10 @@ async function renderWelcomeStep2(group){
       }
       const local=getCache();
       const merged={...remote};
-      // deletedUsersをマージ（ローカル＋リモート両方を保持）
       const mergedDeleted=[...(local.deletedUsers||[])];
       (remote.deletedUsers||[]).forEach(ru=>{if(!mergedDeleted.find(u=>u.id===ru.id))mergedDeleted.push(ru);});
       merged.deletedUsers=mergedDeleted;
-      // リモートから来たusersのうち削除済みのものを除外
       merged.users=(merged.users||[]).filter(ru=>!mergedDeleted.find(u=>u.id===ru.id));
-      // ローカルにしかいないユーザーを追加（削除済みは除く）
       local.users.forEach(lu=>{
         if(!merged.users.find(ru=>ru.id===lu.id)&&!mergedDeleted.find(u=>u.id===lu.id))merged.users.push(lu);
       });
@@ -1422,25 +1445,13 @@ async function renderWelcomeStep2(group){
       if(!merged.users.find(u=>u.id===merged.currentUserId))merged.currentUserId=merged.users[0]?.id||'';
       (merged.users||[]).forEach(u=>{u.habits=(u.habits||[]).map(migrateHabit);u.archive=(u.archive||[]).map(migrateHabit);});
       setCache(merged);setSyncDot('ok');
-    }else{setSyncDot('err');}
+    }else{
+      setSyncDot('err');
+      document.getElementById('welcome-user-sub').textContent='⚠️ GAS読み込みに失敗しました。ローカルデータで続行します。';
+    }
+    // ユーザー一覧を最新データで再描画
+    renderUserList();
   }else{setSyncDot('off');}
-
-  document.getElementById('welcome-user-sub').textContent='あなたはだれですか？（選択するとこのスマホに固定されます）';
-  const all=getCache();
-  const sec=document.getElementById('welcome-existing-section');
-  const list=document.getElementById('welcome-user-list');list.innerHTML='';
-  sec.style.display=all.users.length?'block':'none';
-  all.users.forEach(u=>{
-    const btn=document.createElement('button');
-    btn.className='welcome-item-btn';
-    btn.innerHTML=escHtml(u.name)+'<span style="color:var(--text3);font-size:16px;">→</span>';
-    btn.addEventListener('click',()=>{
-      setPinnedUserId(u.id); // 必ずピン固定
-      const a=getCache();a.currentUserId=u.id;setCache(a);
-      showScreen('screen-list');renderGroupTabs();renderUserTabs();render();
-    });
-    list.appendChild(btn);
-  });
 }
 
 document.getElementById('welcome-back-to-groups').addEventListener('click',()=>renderWelcomeStep1());
@@ -3612,10 +3623,11 @@ document.getElementById('deleted-groups-btn').addEventListener('click',()=>{
     refreshGasStatus();startPeriodicSync();
     showScreen('screen-list');renderGroupTabs();renderUserTabs();render();
   }else{
-    // ピンなし or 無効 → Step2から誰かを選ばせる
+    // ピンなし or 無効 → Step2から誰かを選ばせる（先に画面を表示してからGASロード）
     const cg=getCurrentGroup();
     if(cg&&all.users.length){
-      renderWelcomeStep2(cg).then(()=>showScreen('screen-welcome'));
+      showScreen('screen-welcome');
+      renderWelcomeStep2(cg); // awaitしない：先に画面を出してバックグラウンドでGAS取得
     }else{
       renderWelcomeStep1();showScreen('screen-welcome');
     }
