@@ -529,7 +529,7 @@
   <div class="main">
     <div class="habit-list-header">
       <div class="section-label">習慣リスト</div>
-      <button class="lock-toggle-btn" id="lock-toggle-btn" title="編集ロック切り替え">🔓 ロック</button>
+      <button class="lock-toggle-btn" id="lock-toggle-btn" title="編集ロック切り替え">🔓 解除中</button>
     </div>
     <div class="habit-list" id="habit-list"></div>
   </div>
@@ -814,9 +814,9 @@ const EDIT_LOCK_PREFIX='tsuzukeru_edit_lock_'; // ユーザーごとのロック
 const TYPES=['daily','occasional','quit']; // 毎日・ときどき・やめる！
 
 function getEditLockKey(){
-  // 現在のグループID＋ピンユーザーIDでキーを作成（ユーザーごとの設定）
+  // 現在のグループID＋現在表示中ユーザーIDでキーを作成（ユーザーごとの設定）
   const gid=getCurrentGroupId();
-  const uid=getPinnedUserId()||'default';
+  const uid=getCache().currentUserId||'default';
   return EDIT_LOCK_PREFIX+gid+'_'+uid;
 }
 function isEditLocked(){return localStorage.getItem(getEditLockKey())==='1';}
@@ -828,7 +828,7 @@ function setEditLock(val){
   // ロックボタンの表示更新
   const lockBtn=document.getElementById('lock-toggle-btn');
   if(lockBtn){
-    lockBtn.textContent=val?'🔒 ロック中':'🔓 ロック';
+    lockBtn.textContent=val?'🔒 ロック中':'🔓 解除中';
     lockBtn.classList.toggle('locked',!!val);
   }
   // 追加フォームはロック中も使用可能（追加は許可）
@@ -1636,7 +1636,7 @@ function renderUserTabs(){
       clearTimeout(longPressTimer);longPressTimer=null;
       if(!isDragging){
         // 短タップ → ユーザー切り替え
-        const a=getCache();a.currentUserId=u.id;setCache(a);renderUserTabs();render();
+        const a=getCache();a.currentUserId=u.id;setCache(a);renderUserTabs();setEditLock(isEditLocked());render();
         if(getGasUrl()&&getAutoSync()){syncFromRemote(true).then(()=>{const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});setGasSyncTime('auto',now);});}
         return;
       }
@@ -1664,7 +1664,7 @@ function renderUserTabs(){
     btn.addEventListener('click',e=>{
       if(isDragging){e.preventDefault();return;}
       clearTimeout(longPressTimer);longPressTimer=null;
-      const a=getCache();a.currentUserId=u.id;setCache(a);renderUserTabs();render();
+      const a=getCache();a.currentUserId=u.id;setCache(a);renderUserTabs();setEditLock(isEditLocked());render();
       if(getGasUrl()&&getAutoSync()){syncFromRemote(true).then(()=>{const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});setGasSyncTime('auto',now);});}
     });
 
