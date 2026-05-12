@@ -1,7 +1,7 @@
-const CACHE_NAME = 'tsuzukeru-v1';
+const CACHE_NAME = 'tsuzukeru-v2';
 const ASSETS = [
   './',
-  './tsuzukeru_v40.html',
+  './index.html',  // 追加しても二重にキャッシュされるだけで害はない
   './manifest_tsuzukeru.json',
   './tsuzukeru-icon-192.png',
   './tsuzukeru-icon-512.png'
@@ -9,8 +9,7 @@ const ASSETS = [
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS.filter(a => !a.endsWith('.png') || true)))
-      .catch(() => caches.open(CACHE_NAME).then(cache => cache.addAll(['./tsuzukeru_v40.html'])))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
   );
   self.skipWaiting();
 });
@@ -23,7 +22,7 @@ self.addEventListener('activate', event => {
   );
 });
 
-// ネットワーク優先（更新を即反映）→ 失敗時はキャッシュ
+// ネットワーク優先 → 失敗時はキャッシュ
 self.addEventListener('fetch', event => {
   event.respondWith(
     fetch(event.request)
