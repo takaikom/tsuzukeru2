@@ -3701,7 +3701,21 @@ document.getElementById('deleted-groups-btn').addEventListener('click',()=>{
     }
   }
 })();
-// ── PWA サービスワーカー：単一ファイル版のため登録なし ──
+// ── PWA サービスワーカー登録 ──
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => {
+        reg.update();
+        console.log('SW registered:', reg.scope);
+      })
+      .catch(err => console.log('SW registration failed:', err));
+  });
+} else if ('serviceWorker' in navigator && location.protocol === 'file:') {
+  navigator.serviceWorker.getRegistrations()
+    .then(regs => Promise.all(regs.map(r => r.unregister())))
+    .catch(() => {});
+}
 </script>
 </body>
 </html>
