@@ -1,14 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-CEQ2GRF8L7"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-  
-    gtag('config', 'G-CEQ2GRF8L7');
-  </script>
   <script type="text/javascript">
         (function(c,l,a,r,i,t,y){
             c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
@@ -262,6 +254,11 @@
   .day-cell.today{border-color:var(--accent);color:var(--accent);font-weight:700;}
   .day-cell.today.done{background:var(--check);border-color:var(--check);color:white;}
   .day-cell:not(.done):not(.future):not(.empty):not(.quit-ng):active{background:var(--surface2);}
+  .day-cell.has-memo{position:relative;}
+  .day-cell.has-memo::after{content:'';position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--text3);pointer-events:none;}
+  .day-cell.done.has-memo::after{background:rgba(255,255,255,0.7);}
+  .day-cell.quit-ng.has-memo::after{background:var(--red);}
+  .day-cell.today.has-memo::after{background:var(--accent);}
   .cal-legend{display:flex;gap:10px;margin-top:14px;justify-content:center;flex-wrap:wrap;}
   .cal-link-area{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
   .cal-link-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px 16px;border-radius:14px;border:1.5px solid var(--blue);background:var(--blue-light);color:var(--blue);font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:500;text-decoration:none;-webkit-tap-highlight-color:transparent;box-sizing:border-box;}
@@ -1322,7 +1319,15 @@ function milestoneLabel(streak,type){
 
 function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-// ── メモ・リンク ヘルパー ──
+// メモ・リンク ヘルパー ──
+// 今日のアクティブメモを取得（dailyMemos[TODAY] → 最新の日付 → 旧habit.memo の順）
+function getActiveMemo(habit){
+  const dm=habit.dailyMemos||{};
+  if(dm[TODAY]!==undefined)return dm[TODAY]||'';
+  const keys=Object.keys(dm).sort();
+  if(keys.length)return dm[keys[keys.length-1]]||'';
+  return habit.memo||'';
+}
 function linkLabel(url){
   try{const u=new URL(url);return u.hostname+(u.pathname!=='/'?u.pathname:'');}catch{return url;}
 }
@@ -1368,6 +1373,16 @@ function openHabitEditSheet(idx){
   let editType=habit.type||'daily';
   let editLinks=(habit.links||[]).filter(l=>l).slice();
   let editShowMemo=habit.showMemo!==false; // デフォルトtrue
+  // dailyMemos: 日付ごとのメモオブジェクト。未設定時は最新メモを引き継ぎ
+  function getLatestMemoLocal(h){
+    const dm=h.dailyMemos||{};
+    const keys=Object.keys(dm).sort();
+    if(keys.length)return dm[keys[keys.length-1]]||'';
+    return h.memo||'';
+  }
+  const todayMemoInit=(habit.dailyMemos&&habit.dailyMemos[TODAY]!==undefined)
+    ?habit.dailyMemos[TODAY]
+    :getLatestMemoLocal(habit);
 
   function mkTypeBtn(t){
     const[c,bg]=typeColors[t];const sel=t===editType;
@@ -1417,12 +1432,13 @@ function openHabitEditSheet(idx){
         <div>
           <div class="edit-show-memo-row">
             <div>
-              <div class="edit-section-label">メモ</div>
-              <div class="edit-show-memo-label">カードに表示する</div>
+              <div class="edit-section-label">メモ（サブタイトル）</div>
+              <div class="edit-show-memo-label">習慣名の後ろに表示する</div>
             </div>
             <label class="toggle" style="flex-shrink:0;"><input type="checkbox" id="edit-show-memo-chk" ${editShowMemo?'checked':''}><span class="toggle-track"></span></label>
           </div>
-          <textarea id="edit-memo-area" class="edit-memo-area" placeholder="メモを入力（URLも書けます）" style="margin-top:4px;">${escHtml(habit.memo||'')}</textarea>
+          <div style="font-size:11px;color:var(--text3);margin:2px 0 4px;">今日（${TODAY}）の内容。変更しない限り前回の内容を継続します。</div>
+          <textarea id="edit-memo-area" class="edit-memo-area" placeholder="今日のサブタイトルを入力…" style="margin-top:4px;">${escHtml(todayMemoInit)}</textarea>
         </div>
         <div>
           <div class="edit-section-label" style="margin-bottom:6px;">リンク</div>
@@ -1447,7 +1463,11 @@ function openHabitEditSheet(idx){
     const links=editLinks.filter(l=>l.trim());
     const a=getCache();const u=a.users.find(u=>u.id===a.currentUserId);
     const h=u.habits[idx];
-    h.name=newName;h.type=editType;h.memo=memo;h.links=links;h.showMemo=editShowMemo;
+    if(!h.dailyMemos)h.dailyMemos={};
+    h.dailyMemos[TODAY]=memo;
+    // 後方互換: habit.memoは今日のメモで更新（旧バージョンとの互換性のため）
+    h.memo=memo;
+    h.name=newName;h.type=editType;h.links=links;h.showMemo=editShowMemo;
     setCache(a);ov.remove();await saveData();showToast(`✅「${newName}」を保存しました`);render();
   };
 
@@ -2037,7 +2057,7 @@ function render(){
         <div class="drag-handle" title="ドラッグして並び替え">⠿</div>
         <div class="check-box"><svg class="check-mark" viewBox="0 0 12 9"><path d="M1 4.5L4.5 8L11 1"/></svg></div>
         <div class="habit-name-wrap">
-          <span class="habit-name">${escHtml(habit.name)}${tagHtml}</span>
+          <span class="habit-name">${escHtml(habit.name)}${tagHtml}${(habit.showMemo&&getActiveMemo(habit))?`<span style="font-size:15px;font-weight:400;color:var(--text2);">（${escHtml(getActiveMemo(habit))}）</span>`:''}</span>
         </div>
         <div class="card-actions">
           <button class="habit-hover-del" data-idx="${idx}" title="削除">✕</button>
@@ -2056,14 +2076,13 @@ function render(){
           ${milestone?`<span class="milestone">${milestone}</span>`:''}
         </div>
       </div>
-      ${(habit.showMemo&&habit.memo)?'<div class="card-memo">'+renderMemoHtml(habit.memo)+'</div>':''}
       `;
 
     wrap.appendChild(card);
 
     // チェック
     card.addEventListener('click',async(e)=>{
-      if(e.target.closest('.act-btn')||e.target.closest('.habit-hover-del')||e.target.closest('.rename-form')||e.target.closest('.drag-handle')||e.target.closest('.card-memo'))return;
+      if(e.target.closest('.act-btn')||e.target.closest('.habit-hover-del')||e.target.closest('.rename-form')||e.target.closest('.drag-handle'))return;
       const a=getCache();const u=a.users.find(u=>u.id===a.currentUserId);
       const h=u.habits[idx];if(!h.logs)h.logs={};
       h.logs[TODAY]?delete h.logs[TODAY]:(h.logs[TODAY]=true);
@@ -2209,6 +2228,31 @@ function initDrag(handle,card,list){
   });
 }
 
+// ── カレンダー メモ ツールチップ ──
+function showCalMemoTooltip(memoText,cell,dateKey){
+  // 既存のツールチップを削除
+  const existing=document.getElementById('cal-memo-tooltip');if(existing)existing.remove();
+  const tooltip=document.createElement('div');
+  tooltip.id='cal-memo-tooltip';
+  const rect=cell.getBoundingClientRect();
+  tooltip.style.cssText=`position:fixed;z-index:300;background:var(--text);color:white;font-size:12px;padding:8px 12px;border-radius:10px;max-width:240px;word-break:break-all;line-height:1.5;box-shadow:0 4px 16px rgba(0,0,0,.2);pointer-events:none;`;
+  tooltip.textContent=dateKey+'：'+memoText;
+  document.body.appendChild(tooltip);
+  // 位置調整
+  const tw=tooltip.offsetWidth,th=tooltip.offsetHeight;
+  let left=rect.left+rect.width/2-tw/2;
+  let top=rect.top-th-6;
+  if(top<8)top=rect.bottom+6;
+  if(left<8)left=8;
+  if(left+tw>window.innerWidth-8)left=window.innerWidth-tw-8;
+  tooltip.style.left=left+'px';tooltip.style.top=top+'px';
+  // 2秒後に自動消去
+  setTimeout(()=>{if(tooltip.parentNode)tooltip.remove();},2500);
+  // タップで消去
+  const remove=()=>{tooltip.remove();document.removeEventListener('touchstart',remove);document.removeEventListener('mousedown',remove);};
+  setTimeout(()=>{document.addEventListener('touchstart',remove,{once:true,passive:true});document.addEventListener('mousedown',remove,{once:true});},50);
+}
+
 // ── CALENDAR ──
 function openCalendar(idx){calHabitIdx=idx;calYear=new Date().getFullYear();calMonth=new Date().getMonth();renderCalendar();showScreen('screen-cal');}
 function renderCalendar(){
@@ -2258,11 +2302,11 @@ function renderCalendar(){
   // カレンダー凡例
   const legend=document.getElementById('cal-legend');
   if(isQuit){
-    legend.innerHTML=`<div class="legend-item"><div class="legend-dot quit-ok-dot"></div>我慢できた日</div><div class="legend-item"><div class="legend-dot quit-ng-dot" style="background:var(--red-mid);"></div>やってしまった日</div><div class="legend-item"><div class="legend-dot today-l"></div>今日</div>`;
+    legend.innerHTML=`<div class="legend-item"><div class="legend-dot quit-ok-dot"></div>我慢できた日</div><div class="legend-item"><div class="legend-dot quit-ng-dot" style="background:var(--red-mid);"></div>やってしまった日</div><div class="legend-item"><div class="legend-dot today-l"></div>今日</div><div class="legend-item"><span style="font-size:11px;color:var(--text3);">●</span> メモあり（長押しで確認）</div>`;
   }else if(isOccasional){
-    legend.innerHTML=`<div class="legend-item"><div class="legend-dot occasional-done"></div>実施した日</div><div class="legend-item"><div class="legend-dot today-l"></div>今日</div>`;
+    legend.innerHTML=`<div class="legend-item"><div class="legend-dot occasional-done"></div>実施した日</div><div class="legend-item"><div class="legend-dot today-l"></div>今日</div><div class="legend-item"><span style="font-size:11px;color:var(--text3);">●</span> メモあり（長押しで確認）</div>`;
   }else{
-    legend.innerHTML=`<div class="legend-item"><div class="legend-dot done"></div>達成済み</div><div class="legend-item"><div class="legend-dot today-l"></div>今日</div>`;
+    legend.innerHTML=`<div class="legend-item"><div class="legend-dot done"></div>達成済み</div><div class="legend-item"><div class="legend-dot today-l"></div>今日</div><div class="legend-item"><span style="font-size:11px;color:var(--text3);">●</span> メモあり（長押しで確認）</div>`;
   }
 
   const grid=document.getElementById('day-grid');grid.innerHTML='';
@@ -2272,6 +2316,10 @@ function renderCalendar(){
   for(let d=1;d<=dim;d++){
     const k=dateKey(calYear,calMonth,d),isDone=!!(habit.logs||{})[k];
     const isToday=k===TODAY,isFuture=k>TODAY;
+    // メモの取得（dailyMemos[k] or habit.memo(後方互換)）
+    const dm=habit.dailyMemos||{};
+    const hasMemo=!!(dm[k]||(isToday&&getActiveMemo(habit)));
+    const memoText=dm[k]||(isToday?getActiveMemo(habit):'');
     const cell=document.createElement('div');
     let cls='day-cell';
     if(isQuit){
@@ -2284,6 +2332,7 @@ function renderCalendar(){
     }
     if(isToday)cls+=' today';
     if(isFuture)cls+=' future';
+    if(hasMemo)cls+=' has-memo';
     cell.className=cls;cell.textContent=d;
     if(!isFuture)cell.addEventListener('click',async()=>{
       const a=getCache();const u=a.users.find(u=>u.id===a.currentUserId);
@@ -2294,6 +2343,21 @@ function renderCalendar(){
       const msg=isQuit?(was?`${lbl} — 記録を消しました`:`${lbl} — 我慢できた！ ✓`):(was?`${lbl} — 取り消しました`:`${lbl} — 記録しました ✓`);
       showToast(msg);renderCalendar();await saveData();
     });
+    // 長押しでメモを表示（メモがある日付のみ）
+    if(hasMemo&&memoText){
+      let pressTimer=null;
+      cell.addEventListener('touchstart',()=>{
+        pressTimer=setTimeout(()=>{showCalMemoTooltip(memoText,cell,k);},500);
+      },{passive:true});
+      cell.addEventListener('touchend',()=>{clearTimeout(pressTimer);},{passive:true});
+      cell.addEventListener('touchmove',()=>{clearTimeout(pressTimer);},{passive:true});
+      // マウス長押し（PC）
+      cell.addEventListener('mousedown',()=>{
+        pressTimer=setTimeout(()=>{showCalMemoTooltip(memoText,cell,k);},500);
+      });
+      cell.addEventListener('mouseup',()=>{clearTimeout(pressTimer);});
+      cell.addEventListener('mouseleave',()=>{clearTimeout(pressTimer);});
+    }
     grid.appendChild(cell);
   }
 
