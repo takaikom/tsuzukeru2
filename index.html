@@ -1,4 +1,22 @@
-<!DOCTYPE html>
+<!--
+ コード修正時には変更履歴を更新すること！
+ * === 変更履歴 ===
+ * [v63] カレンダーで過去月が表示できない問題を修正
+ *   - 原因：prev-month ボタンの click イベントリスナーが欠落していた
+ *   - 対応：next-month リスナーの直前に以下を追加
+ *       document.getElementById('prev-month').addEventListener('click',()=>{
+ *         calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendar();
+ *       });
+ *
+ * [v62] 「やめる！」カレンダー中央の「今月やった回数」が
+ *             過去月表示時も常に当月データを表示していた問題を修正
+ *   - 原因：getQuitMonthStats() が new Date() 固定で今月を参照していた
+ *   - 対応：引数 (year, month) を追加し、calYear/calMonth を渡すよう変更
+ *       function getQuitMonthStats(habit, year, month) { ... }
+ *       呼び出し側：getQuitMonthStats(habit, calYear, calMonth)
+ * =============== 
+ -->
+ <!DOCTYPE html>
 <html lang="ja">
 <head>
   <script type="text/javascript">
@@ -1313,15 +1331,15 @@ function getLast7(habit){
 }
 function getTotalDays(h){return Object.values(h.logs||{}).filter(Boolean).length;}
 
-// やめる！用：今月やってしまった日数
-function getQuitMonthStats(habit){
+// やめる！用：指定月やってしまった日数
+function getQuitMonthStats(habit,year,month){
   const logs=habit.logs||{};
   const nl=new Date(),ty=nl.getFullYear(),tm=nl.getMonth(),td=nl.getDate();
-  const dim=new Date(ty,tm+1,0).getDate();
-  const elapsed=td;
+  const dim=new Date(year,month+1,0).getDate();
+  const elapsed=(year===ty&&month===tm)?td:(year>ty||(year===ty&&month>tm))?0:dim;
   let ok=0,ng=0;
   for(let d=1;d<=elapsed;d++){
-    const k=dateKey(ty,tm,d);
+    const k=dateKey(year,month,d);
     if(logs[k])ok++;else ng++;
   }
   return{ok,ng,elapsed};
@@ -2318,7 +2336,7 @@ function renderCalendar(){
 
   if(isQuit){
     const qs=getQuitStreak(habit);
-    const{ok,ng,elapsed}=getQuitMonthStats(habit);
+    const{ok,ng,elapsed}=getQuitMonthStats(habit,calYear,calMonth);
     document.getElementById('cal-streak').textContent=qs>0?qs:'—';
     document.getElementById('cal-streak-lbl').textContent='💪 我慢継続日数';
     document.getElementById('cal-total').textContent=ng;
