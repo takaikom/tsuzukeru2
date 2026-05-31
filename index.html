@@ -2461,6 +2461,7 @@ function renderCalendar(){
   }
 
 }
+document.getElementById('prev-month').addEventListener('click',()=>{calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendar();});
 document.getElementById('next-month').addEventListener('click',()=>{calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendar();});
 document.getElementById('back-btn').addEventListener('click',()=>{showScreen('screen-list');render();});
 
