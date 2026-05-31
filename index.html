@@ -2301,7 +2301,16 @@ function openCalendar(idx){calHabitIdx=idx;calYear=new Date().getFullYear();calM
 function renderCalendar(){
   const {habits}=getUserData();const habit=habits[calHabitIdx];if(!habit){showScreen('screen-list');return;}
   const type=habit.type||'daily';const isQuit=type==='quit';const isOccasional=type==='occasional';
-  const dayMemos=habit.dayMemos||{};
+  // 表示用にdayMemosを補完：明示的なメモがなければ直近の継続メモを埋める（保存はしない）
+  const rawMemos=habit.dayMemos||{};
+  const dim_=new Date(calYear,calMonth+1,0).getDate();
+  const dayMemos={};
+  for(let d_=1;d_<=dim_;d_++){
+    const k_=dateKey(calYear,calMonth,d_);
+    if(k_>TODAY)break;
+    const v=rawMemos[k_]!=null?rawMemos[k_]:getActiveMemo(habit,k_);
+    if(v)dayMemos[k_]=v;
+  }
 
   const typeLabels={'daily':'','occasional':' (ときどき)','quit':' (やめる！)'};
   document.getElementById('cal-habit-name').textContent=habit.name+typeLabels[type];
