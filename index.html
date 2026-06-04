@@ -1,6 +1,8 @@
 <!--
  コード修正時には変更履歴を更新すること！
  * === 変更履歴 ===
+ * [v65] 
+ *   -カレンダードット色変更
  * [v64] メモ継続オン/オフ切り替え機能、画面遷移時のスクロール位置保存・復元（バグ修正含む）
  *   - dayMemos エントリを {text, persist} 形式に拡張（文字列との後方互換あり）
  *   - persist:false のメモは翌日以降に継続しない（その日だけのメモ）
@@ -2469,7 +2471,8 @@ function renderCalendar(){
     // 日付メモがあればドット表示
     if(!isFuture&&dayMemos[k]){
       const dot=document.createElement('div');
-      dot.style.cssText='position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--blue);pointer-events:none;';
+      const dotColor=isDone?'rgba(255,255,255,0.85)':'var(--blue)';
+      dot.style.cssText=`position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:${dotColor};pointer-events:none;`;
       cell.appendChild(dot);
     }
     if(!isFuture)cell.addEventListener('click',async()=>{
