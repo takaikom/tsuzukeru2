@@ -1,6 +1,17 @@
 <!--
  コード修正時には変更履歴を更新すること！
  * === 変更履歴 ===
+ * [v64] メモ継続オン/オフ切り替え機能、画面遷移時のスクロール位置保存・復元（バグ修正含む）
+ *   - dayMemos エントリを {text, persist} 形式に拡張（文字列との後方互換あり）
+ *   - persist:false のメモは翌日以降に継続しない（その日だけのメモ）
+ *   - カレンダーのメモ編集ポップアップに「翌日以降も継続」トグルを追加
+ *   - 習慣カード設定画面のメモ欄にも同トグルを追加
+ *   - showScreen() がスクロール位置を画面IDごとに保存・復元するよう改修
+ *     （カレンダー→カード一覧など、どの画面間移動でも位置が保たれる）
+ *   - [bugfix] カレンダーで継続メモを削除しても元に戻る問題を修正
+ *       継続メモを空にして保存した場合、{text:'',persist:false} のブロックエントリを
+ *       dayMemos に保存し、getActiveMemo が継続を止めるよう対処
+ *
  * [v63] カレンダーで過去月が表示できない問題を修正
  *   - 原因：prev-month ボタンの click イベントリスナーが欠落していた
  *   - 対応：next-month リスナーの直前に以下を追加
@@ -1407,6 +1418,9 @@ function openHabitEditSheet(idx){
   let editType=habit.type||'daily';
   let editLinks=(habit.links||[]).filter(l=>l).slice();
   let editShowMemo=habit.showMemo!==false; // デフォルトtrue
+  // 現在のTODAYエントリのpersistフラグを初期値に（エントリなければtrue）
+  const _todayEntry=(habit.dayMemos||{})[TODAY];
+  let editMemoPersist=_todayEntry!=null?memoEntryPersist(_todayEntry):true;
 
   function mkTypeBtn(t){
     const[c,bg]=typeColors[t];const sel=t===editType;
@@ -1462,6 +1476,13 @@ function openHabitEditSheet(idx){
             <label class="toggle" style="flex-shrink:0;"><input type="checkbox" id="edit-show-memo-chk" ${editShowMemo?'checked':''}><span class="toggle-track"></span></label>
           </div>
           <textarea id="edit-memo-area" class="edit-memo-area" placeholder="メモを入力（URLも書けます）" style="margin-top:4px;">${escHtml(getActiveMemo(habit,TODAY))}</textarea>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding:4px 0;">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--text);">翌日以降も継続</div>
+              <div style="font-size:11px;color:var(--text3);">オフにするとこの日だけのメモ</div>
+            </div>
+            <label class="toggle" style="flex-shrink:0;"><input type="checkbox" id="edit-memo-persist-chk" ${editMemoPersist?'checked':''}><span class="toggle-track"></span></label>
+          </div>
         </div>
         <div>
           <div class="edit-section-label" style="margin-bottom:6px;">リンク</div>
@@ -1479,6 +1500,7 @@ function openHabitEditSheet(idx){
 
   const nameInput=sheet.querySelector('#edit-name-input');
   sheet.querySelector('#edit-show-memo-chk').addEventListener('change',ev=>{editShowMemo=ev.target.checked;});
+  sheet.querySelector('#edit-memo-persist-chk').addEventListener('change',ev=>{editMemoPersist=ev.target.checked;});
 
   const doSave=async()=>{
     const newName=nameInput.value.trim();if(!newName)return;
@@ -1489,7 +1511,7 @@ function openHabitEditSheet(idx){
     h.name=newName;h.type=editType;h.links=links;h.showMemo=editShowMemo;
     // メモはdayMemos[TODAY]に保存（habit.memoは使わない）
     if(!h.dayMemos)h.dayMemos={};
-    if(memo){h.dayMemos[TODAY]=memo;}else{delete h.dayMemos[TODAY];}
+    if(memo){h.dayMemos[TODAY]={text:memo,persist:editMemoPersist};}else{delete h.dayMemos[TODAY];}
     setCache(a);ov.remove();await saveData();showToast(`✅「${newName}」を保存しました`);render();
   };
 
@@ -1515,9 +1537,16 @@ function showToast(msg){
   const t=document.getElementById('toast');t.innerHTML=escHtml(msg);t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2400);
 }
+const _screenScrollPos={};
 function showScreen(id){
+  // 現在のアクティブ画面のスクロール位置を保存
+  const cur=document.querySelector('.screen.active');
+  if(cur)_screenScrollPos[cur.id]=window.scrollY;
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');window.scrollTo(0,0);
+  document.getElementById(id).classList.add('active');
+  // 遷移先の保存済みスクロール位置を復元（なければ0）
+  const pos=_screenScrollPos[id]??0;
+  window.scrollTo(0,pos);
 }
 function launchConfetti(){
   if(confettiActive)return;confettiActive=true;
@@ -2254,12 +2283,23 @@ function initDrag(handle,card,list){
   });
 }
 
+// dayMemosエントリからテキストを取り出す（文字列互換 or {text,persist}形式）
+function memoEntryText(entry){return(entry&&typeof entry==='object')?entry.text:(entry||'');}
+function memoEntryPersist(entry){return(entry&&typeof entry==='object')?entry.persist!==false:true;}
+
 // 指定日以前で最も新しいdayMemosの値を返す（継続メモ取得用）
+// persist:false のエントリは「その日限り」＝それより前のメモへ遡る
 function getActiveMemo(habit, asOfDateKey){
   const dm=habit.dayMemos||{};
-  const keys=Object.keys(dm).filter(k=>k<=asOfDateKey).sort();
-  if(!keys.length)return '';
-  return dm[keys[keys.length-1]];
+  const keys=Object.keys(dm).filter(k=>k<=asOfDateKey).sort().reverse();
+  for(const k of keys){
+    const entry=dm[k];
+    const text=memoEntryText(entry);
+    if(k===asOfDateKey) return text; // 当日は内容を返す（persist関係なし）
+    if(!memoEntryPersist(entry)) return ''; // persist:falseはここで止まる
+    if(text) return text;
+  }
+  return '';
 }
 
 // ── 日付メモ入力ポップアップ ──
@@ -2268,9 +2308,13 @@ function openDayMemoSheet(habitIdx, dateKey_){
   const habit=habits[habitIdx];if(!habit)return;
   const dm=habit.dayMemos||{};
   // その日のメモがあればそれを、なければ直近の継続メモを初期値に
-  const ownMemo=dm[dateKey_]!=null?dm[dateKey_]:null;
-  const inherited=ownMemo==null?getActiveMemo(habit,dateKey_):'';
-  const existing=ownMemo!=null?ownMemo:inherited;
+  const ownEntry=dm[dateKey_]!=null?dm[dateKey_]:null;
+  const ownText=ownEntry!=null?memoEntryText(ownEntry):null;
+  // ownEntryがない場合は継続中のメモを取得
+  const inheritedText=ownEntry==null?getActiveMemo(habit,dateKey_):'';
+  const existingText=ownText!=null?ownText:inheritedText;
+  // 継続フラグの初期値：既存エントリがあればその値、なければtrue
+  const initPersist=ownEntry!=null?memoEntryPersist(ownEntry):true;
 
   const[y,m,d]=dateKey_.split('-').map(Number);
   const dateLabel=`${y}年${m}月${d}日`;
@@ -2282,8 +2326,15 @@ function openDayMemoSheet(habitIdx, dateKey_){
     <div style="width:36px;height:4px;background:var(--border2);border-radius:99px;margin:0 auto 16px;"></div>
     <div class="day-memo-title">📝 ${escHtml(habit.name)}</div>
     <div class="day-memo-date">${dateLabel}${isToday?' (今日)':''} のメモ</div>
-    ${inherited?`<div style="font-size:11px;color:var(--text3);margin-bottom:6px;">↩ 前回からの継続（変更可）</div>`:''}
-    <textarea class="day-memo-textarea" placeholder="メモを入力…" maxlength="500">${escHtml(existing)}</textarea>
+    ${(ownEntry==null&&inheritedText)?`<div style="font-size:11px;color:var(--text3);margin-bottom:6px;">↩ 前回からの継続（変更可）</div>`:''}
+    <textarea class="day-memo-textarea" placeholder="メモを入力…" maxlength="500">${escHtml(existingText)}</textarea>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding:6px 2px;">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text);">翌日以降も継続</div>
+        <div style="font-size:11px;color:var(--text3);">オフにするとこの日だけのメモ</div>
+      </div>
+      <label class="toggle" style="flex-shrink:0;"><input type="checkbox" id="day-memo-persist-chk" ${initPersist?'checked':''}><span class="toggle-track"></span></label>
+    </div>
     <div class="day-memo-btns">
       <button class="day-memo-cancel">キャンセル</button>
       <button class="day-memo-save">保存</button>
@@ -2295,10 +2346,21 @@ function openDayMemoSheet(habitIdx, dateKey_){
 
   const doSave=async()=>{
     const val=ta.value.trim();
+    const persist=ov.querySelector('#day-memo-persist-chk').checked;
     const a=getCache();const u=a.users.find(u=>u.id===a.currentUserId);
     const h=u.habits[habitIdx];
     if(!h.dayMemos)h.dayMemos={};
-    if(val){h.dayMemos[dateKey_]=val;}else{delete h.dayMemos[dateKey_];}
+    if(val){
+      // テキストあり：通常保存
+      h.dayMemos[dateKey_]={text:val,persist};
+    }else if(ownEntry!=null){
+      // テキストなし＋この日に元々エントリがあった → エントリ削除
+      delete h.dayMemos[dateKey_];
+    }else if(inheritedText){
+      // テキストなし＋継続メモが表示されていた → 継続をブロックするエントリを保存
+      h.dayMemos[dateKey_]={text:'',persist:false};
+    }
+    // それ以外（元々何もなく、継続もない）→ 何もしない
     setCache(a);ov.remove();await saveData();
     // カレンダー画面が表示中ならrenderCalendar、そうでなければrender
     if(document.getElementById('screen-cal').classList.contains('active')){
@@ -2326,8 +2388,8 @@ function renderCalendar(){
   for(let d_=1;d_<=dim_;d_++){
     const k_=dateKey(calYear,calMonth,d_);
     if(k_>TODAY)break;
-    const v=rawMemos[k_]!=null?rawMemos[k_]:getActiveMemo(habit,k_);
-    if(v)dayMemos[k_]=v;
+    const rawV=rawMemos[k_]!=null?memoEntryText(rawMemos[k_]):getActiveMemo(habit,k_);
+    if(rawV)dayMemos[k_]=rawV;
   }
 
   const typeLabels={'daily':'','occasional':' (ときどき)','quit':' (やめる！)'};
