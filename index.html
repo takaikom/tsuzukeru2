@@ -1,6 +1,12 @@
 <!--
  コード修正時には変更履歴を更新すること！
  * === 変更履歴 ===
+ * [v66]
+ *   - add-bar レイアウト修正: position:fixed の left/right/margin で中央寄せに変更
+ *     （transform:translateX(-50%) をやめ、iOS各機種で＋ボタンが画面内に収まるよう対処）
+ *   - add-form に overflow:hidden、add-input に min-width:0 追加（フレックス溢れ防止）
+ *   - 習慣編集シートの名前入力を <input> → <textarea> に変更（長い名前を折り返して表示）
+ *     入力内容に応じて高さ自動調整（最大100px）
  * [v65] 
  *   -カレンダードット色変更
  * [v64] メモ継続オン/オフ切り替え機能、画面遷移時のスクロール位置保存・復元（バグ修正含む）
@@ -267,9 +273,9 @@
   .goal-comment-btn:active{opacity:1;background:rgba(24,95,165,.15);}
 
 
-  .add-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surface);border-top:1px solid var(--border);padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:50;}
-  .add-form{display:flex;gap:6px;align-items:center;}
-  .add-input{flex:1;height:42px;border:1.5px solid var(--border2);border-radius:12px;padding:0 12px;font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--text);background:var(--bg);outline:none;transition:border-color .2s;}
+  .add-bar{position:fixed;bottom:0;left:0;right:0;margin:0 auto;width:100%;max-width:480px;background:var(--surface);border-top:1px solid var(--border);padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:50;box-sizing:border-box;}
+  .add-form{display:flex;gap:6px;align-items:center;overflow:hidden;}
+  .add-input{flex:1;min-width:0;height:42px;border:1.5px solid var(--border2);border-radius:12px;padding:0 12px;font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--text);background:var(--bg);outline:none;transition:border-color .2s;box-sizing:border-box;}
   .add-input:focus{border-color:var(--accent);background:white;}
   .add-input::placeholder{color:var(--text3);}
   .add-type-btn{height:42px;padding:0 10px;border-radius:12px;border:1.5px solid var(--border2);background:var(--surface2);color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:border-color .15s,background .15s,color .15s;min-width:54px;text-align:center;}
@@ -1463,7 +1469,7 @@ function openHabitEditSheet(idx){
       <div style="display:flex;flex-direction:column;gap:12px;">
         <div>
           <div class="edit-section-label">名前</div>
-          <input id="edit-name-input" style="margin-top:4px;height:38px;border:1.5px solid var(--accent);border-radius:8px;padding:0 10px;font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--text);background:white;outline:none;width:100%;" type="text" value="${escHtml(habit.name)}" maxlength="40">
+          <textarea id="edit-name-input" style="margin-top:4px;min-height:38px;max-height:100px;border:1.5px solid var(--accent);border-radius:8px;padding:8px 10px;font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--text);background:white;outline:none;width:100%;resize:none;line-height:1.5;overflow-y:auto;box-sizing:border-box;" maxlength="40">${escHtml(habit.name)}</textarea>
         </div>
         <div>
           <div class="edit-section-label">種別</div>
@@ -1501,6 +1507,10 @@ function openHabitEditSheet(idx){
   renderLinkInputs();
 
   const nameInput=sheet.querySelector('#edit-name-input');
+  // テキストエリア自動高さ調整
+  const autoResize=()=>{nameInput.style.height='auto';nameInput.style.height=Math.min(nameInput.scrollHeight,100)+'px';};
+  autoResize();
+  nameInput.addEventListener('input',autoResize);
   sheet.querySelector('#edit-show-memo-chk').addEventListener('change',ev=>{editShowMemo=ev.target.checked;});
   sheet.querySelector('#edit-memo-persist-chk').addEventListener('change',ev=>{editMemoPersist=ev.target.checked;});
 
