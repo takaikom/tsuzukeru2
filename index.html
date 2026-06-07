@@ -1,6 +1,12 @@
 <!--
  コード修正時には変更履歴を更新すること！
  * === 変更履歴 ===
+ * [v67]
+ *   - deletedUsersをGASに保存しないよう変更（ローカルのみ保持）
+ *     削除したユーザーが他デバイスの同期で復活する問題を修正
+ *     gasSend1/2: payloadから deletedUsers を除外
+ *     gasReceive1/2: remote.deletedUsers を参照せず、ローカルの deletedUsers のみでフィルタ
+ *
  * [v66]
  *   - add-bar レイアウト修正: position:fixed の left/right/margin で中央寄せに変更
  *     （transform:translateX(-50%) をやめ、iOS各機種で＋ボタンが画面内に収まるよう対処）
@@ -1068,13 +1074,13 @@ async function gasSend1(){
     const localUser=local.users.find(u=>u.id===curUid);
     if(!localUser){setSyncDot('err');return false;}
 
-    // ローカルとリモート両方のdeletedUsersをマージ
-    const mergedDeleted1=mergeDeletedUsers(local.deletedUsers,remote?remote.deletedUsers:null);
+    // deletedUsersはローカルのみ保持（GASには送らない）
+    const mergedDeleted1=local.deletedUsers||[];
     let payload;
     if(remote){
       const remoteUser=(remote.users||[]).find(u=>u.id===curUid);
       // GASにあるユーザーを維持し、開いているユーザーだけ統合
-      // deletedUsersに含まれるユーザーはGASにいても除外する
+      // ローカルのdeletedUsersに含まれるユーザーはGASにいても除外する
       const newUsers=(remote.users||[])
         .filter(u=>!mergedDeleted1.find(d=>d.id===u.id))
         .map(u=>{
@@ -1093,10 +1099,12 @@ async function gasSend1(){
         });
       // ローカルにしかいないユーザーは送信①では追加しない（対象外）
       if(!newUsers.find(u=>u.id===curUid))newUsers.push({...localUser});
-      payload={...remote,users:newUsers,deletedUsers:mergedDeleted1,groupName:cg?cg.name:(remote.groupName||'')};
+      payload={...remote,users:newUsers,groupName:cg?cg.name:(remote.groupName||'')};
     }else{
-      // GASが空(初回): 全ユーザーをそのまま送信
-      payload={...local,deletedUsers:mergedDeleted1,groupName:cg?cg.name:''};
+      // GASが空(初回): deletedUsersを除いた全ユーザーをそのまま送信
+      const initUsers=(local.users||[]).filter(u=>!mergedDeleted1.find(d=>d.id===u.id));
+      payload={...local,users:initUsers,groupName:cg?cg.name:''};
+      delete payload.deletedUsers;
     }
     const ok=await remoteSave(payload);
     return ok;
@@ -1122,20 +1130,24 @@ async function gasSend2(){
     const localUser=local.users.find(u=>u.id===curUid);
     if(!localUser){setSyncDot('err');return false;}
 
-    const mergedDeleted=mergeDeletedUsers(local.deletedUsers,remote?remote.deletedUsers:null);
+    // deletedUsersはローカルのみ保持（GASには送らない）
+    const localDeleted=local.deletedUsers||[];
     let newUsers;
     if(remote&&remote.users){
-      newUsers=remote.users.map(u=>u.id===curUid?{...localUser}:u);
+      // ローカルのdeletedUsersに含まれるユーザーをGASから除外してから上書き
+      newUsers=remote.users
+        .filter(u=>!localDeleted.find(d=>d.id===u.id))
+        .map(u=>u.id===curUid?{...localUser}:u);
       if(!newUsers.find(u=>u.id===curUid))newUsers.push({...localUser});
     }else{
-      newUsers=local.users.map(u=>({...u}));
+      newUsers=local.users.filter(u=>!localDeleted.find(d=>d.id===u.id)).map(u=>({...u}));
     }
     const payload={
       ...(remote||local),
       users:newUsers,
-      deletedUsers:mergedDeleted,
       groupName:cg?cg.name:((remote&&remote.groupName)||'')
     };
+    delete payload.deletedUsers;
     const ok=await remoteSave(payload);
     return ok;
   }finally{_isSyncing=false;}
@@ -1164,13 +1176,14 @@ async function gasReceive1(silent=false){
       return false;
     }
     const local=JSON.parse(JSON.stringify(getCache()));
-    const mergedDeleted=mergeDeletedUsers(local.deletedUsers,remote.deletedUsers);
+    // deletedUsersはローカルのみ（GASのdeleted情報は使わない）
+    const localDeleted=local.deletedUsers||[];
     const newUsers=[];
 
     // GASのユーザーを処理
     (remote.users||[]).forEach(ru=>{
-      // リモートのdeletedUsersにいる場合のみスキップ（ローカルのdeletedUsersは考慮しない）
-      if((remote.deletedUsers||[]).find(u=>u.id===ru.id))return;
+      // ローカルのdeletedUsersにいる場合はスキップ
+      if(localDeleted.find(u=>u.id===ru.id))return;
       const ruArchive=Array.isArray(ru.archive)?ru.archive:[];
       const ruCopy={...ru,habits:(ru.habits||[]).map(migrateHabit),archive:ruArchive.map(migrateHabit)};
       const lu=local.users.find(u=>u.id===ru.id);
@@ -1192,9 +1205,9 @@ async function gasReceive1(silent=false){
       }
     });
 
-    // ローカルにしかいないユーザーも保持（リモート・ローカル両方のdeletedUsersを除く）
+    // ローカルにしかいないユーザーも保持（ローカルのdeletedUsersを除く）
     local.users.forEach(lu=>{
-      if(!newUsers.find(u=>u.id===lu.id)&&!mergedDeleted.find(u=>u.id===lu.id))
+      if(!newUsers.find(u=>u.id===lu.id)&&!localDeleted.find(u=>u.id===lu.id))
         newUsers.push({...lu});
     });
 
@@ -1211,7 +1224,7 @@ async function gasReceive1(silent=false){
     if(!newUsers.find(u=>u.id===curId))
       curId=(pinned&&newUsers.find(u=>u.id===pinned))?pinned:(newUsers[0]?.id||'');
 
-    setCache({...local,users:newUsers,deletedUsers:mergedDeleted,currentUserId:curId});
+    setCache({...local,users:newUsers,deletedUsers:localDeleted,currentUserId:curId});
     renderGroupTabs();renderUserTabs();render();
     setSyncDot('ok');
     if(!silent)showToast('☁️ GASからデータを受信しました');
@@ -1248,11 +1261,11 @@ async function gasReceive2(){
     });
     if(!remUsers.find(u=>u.id===curId))
       curId=(pinned&&remUsers.find(u=>u.id===pinned))?pinned:(remUsers[0]?.id||'');
-    // deletedUsersはローカルとリモートをマージ（ローカルで削除済みのユーザーが復活しないよう保持）
-    const mergedDeleted2=mergeDeletedUsers(local.deletedUsers,remote.deletedUsers);
-    // remUsersからdeletedUsersに含まれるユーザーを除外
-    const filteredRemUsers=remUsers.filter(u=>!mergedDeleted2.find(d=>d.id===u.id));
-    setCache({...remote,users:filteredRemUsers,deletedUsers:mergedDeleted2,currentUserId:curId});
+    // deletedUsersはローカルのみ（GASのdeleted情報は使わない）
+    const localDeleted2=local.deletedUsers||[];
+    // remUsersからローカルのdeletedUsersに含まれるユーザーを除外
+    const filteredRemUsers=remUsers.filter(u=>!localDeleted2.find(d=>d.id===u.id));
+    setCache({...remote,users:filteredRemUsers,deletedUsers:localDeleted2,currentUserId:curId});
     renderGroupTabs();renderUserTabs();render();
     setSyncDot('ok');
     return true;
