@@ -1,6 +1,14 @@
 <!--
  コード修正時には変更履歴を更新すること！
  * === 変更履歴 ===
+ * [v68]
+ *   - 習慣カードの左スワイプ削除を2ステップ方式に変更
+ *     スワイプで削除ボタンを表示し、ボタンタップ時のみ archiveHabit() を実行
+ *     （勢いよくスワイプしても即削除されなくなった）
+ *     - touchend でカードを SNAP_X(-80px) にスナップして delBg を表示
+ *     - delBg.click で削除実行、カード外タップで snapBack()
+ *     - CSS: .habit-swipe-del.visible に pointer-events:auto を追加
+ *
  * [v67]
  *   - deletedUsersをGASに保存しないよう変更（ローカルのみ保持）
  *     削除したユーザーが他デバイスの同期で復活する問題を修正
@@ -242,8 +250,8 @@
 
   /* SWIPE-TO-DELETE WRAPPER */
   .habit-swipe-wrap{position:relative;border-radius:14px;overflow:hidden;}
-  .habit-swipe-del{position:absolute;right:0;top:0;bottom:0;width:80px;background:var(--red);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;border-radius:0 14px 14px 0;pointer-events:none;opacity:0;transition:opacity .15s;}
-  .habit-swipe-del.visible{opacity:1;}
+  .habit-swipe-del{position:absolute;right:0;top:0;bottom:0;width:80px;background:var(--red);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;border-radius:0 14px 14px 0;pointer-events:none;opacity:0;transition:opacity .15s;cursor:pointer;}
+  .habit-swipe-del.visible{opacity:1;pointer-events:auto;}
   /* PC: ホバー時に削除ボタンを表示 */
   .habit-swipe-wrap:hover .habit-hover-del{opacity:1;pointer-events:auto;}
   .habit-hover-del{width:26px;height:26px;border-radius:7px;border:1px solid var(--border2);background:var(--surface2);color:var(--text3);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s,background .12s,color .12s,border-color .12s;pointer-events:none;flex-shrink:0;}
@@ -2241,34 +2249,64 @@ async function archiveHabit(idx){
 }
 
 // ── スワイプ削除初期化 ──
+// 左スワイプで削除ボタンを表示し、ボタンタップ時のみ削除する
+// （勢いよくスワイプしても削除ボタンが出るだけで即削除はしない）
 function initHabitSwipe(card,delBg,idx){
   const THRESHOLD=72;
-  let startX=0,curX=0,swiping=false;
+  const SNAP_X=-80; // 削除ボタン表示時のカード位置
+  let startX=0,curX=0,swiping=false,revealed=false;
+
+  function snapBack(){
+    revealed=false;
+    card.style.transition='transform .2s ease';
+    card.style.transform='';
+    delBg.classList.remove('visible');
+    setTimeout(()=>{card.style.transition='';},200);
+  }
+
   card.addEventListener('touchstart',e=>{
-    startX=e.touches[0].clientX;curX=0;swiping=true;
+    startX=e.touches[0].clientX;curX=revealed?SNAP_X:0;swiping=true;
+    card.style.transition='';
   },{passive:true});
+
   card.addEventListener('touchmove',e=>{
     if(!swiping)return;
     const dx=e.touches[0].clientX-startX;
-    if(dx>0){card.style.transform='';delBg.classList.remove('visible');return;}
-    curX=Math.max(dx,-THRESHOLD-20);
+    const newX=revealed?Math.min(0,SNAP_X+dx):Math.min(0,dx);
+    if(newX>0)return;
+    curX=Math.max(newX,-THRESHOLD-20);
     card.style.transform=`translateX(${curX}px)`;
     delBg.classList.toggle('visible',-curX>=THRESHOLD*0.5);
   },{passive:true});
+
   card.addEventListener('touchend',()=>{
     swiping=false;
-    if(-curX>=THRESHOLD){
-      if(isEditLocked()){
-        card.style.transform='';delBg.classList.remove('visible');
-        showToast('🔒 編集ロック中です');return;
-      }
-      card.style.transform='translateX(-100%)';
-      card.style.transition='transform .25s ease';
-      setTimeout(()=>archiveHabit(idx),250);
+    if(-curX>=THRESHOLD*0.5){
+      revealed=true;
+      card.style.transition='transform .2s ease';
+      card.style.transform=`translateX(${SNAP_X}px)`;
+      delBg.classList.add('visible');
+      setTimeout(()=>{card.style.transition='';},200);
     }else{
-      card.style.transform='';delBg.classList.remove('visible');
+      snapBack();
     }
   });
+
+  delBg.addEventListener('click',()=>{
+    if(isEditLocked()){
+      snapBack();
+      showToast('🔒 編集ロック中です');return;
+    }
+    card.style.transition='transform .25s ease';
+    card.style.transform='translateX(-100%)';
+    setTimeout(()=>archiveHabit(idx),250);
+  });
+
+  document.addEventListener('touchstart',e=>{
+    if(revealed&&!card.contains(e.target)&&!delBg.contains(e.target)){
+      snapBack();
+    }
+  },{passive:true});
 }
 
 // ── DRAG & DROP ──
