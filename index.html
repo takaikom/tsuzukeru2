@@ -1,6 +1,18 @@
 <!--
  コード修正時には変更履歴を更新すること！
  * === 変更履歴 ===
+ * [v69]
+ *   - iOSでテキスト入力欄をフォーカスすると画面が自動拡大され、
+ *     フォーカスを外しても拡大率が戻らない問題を修正
+ *     原因：iOS Safariはinput/textareaのfont-sizeが16px未満だと
+ *     フォーカス時に自動ズームする仕様があるため
+ *     対応：習慣追加欄・GAS URL設定欄・各種メモ欄・グループ名/ユーザー名
+ *     入力欄など、14px/13px/12pxだった全てのテキスト入力系フィールド
+ *     （input/textarea、計19箇所）を16pxに統一
+ *     あわせて今後動的に追加されるinput/textarea/selectにも効くよう、
+ *     グローバルなフォールバックルール（type別セレクタで font-size:16px）
+ *     も追加
+ *
  * [v68]
  *   - 習慣カードの左スワイプ削除を2ステップ方式に変更
  *     スワイプで削除ボタンを表示し、ボタンタップ時のみ archiveHabit() を実行
@@ -52,22 +64,22 @@
  <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <!-- Google tag (gtag.js) -->
- <script async src="https://www.googletagmanager.com/gtag/js?id=G-CEQ2GRF8L7"></script>
- <script>
-   window.dataLayer = window.dataLayer || [];
-   function gtag(){dataLayer.push(arguments);}
-   gtag('js', new Date());
- 
-   gtag('config', 'G-CEQ2GRF8L7');
- </script>
- <script type="text/javascript">
-   (function(c,l,a,r,i,t,y){
-       c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-       t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-       y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-    })(window,document,"clarity","script","wynoov7x53");
- </script>
+    <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-6HLK2HC7W5"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-6HLK2HC7W5');
+  </script>
+  <script type="text/javascript">
+      (function(c,l,a,r,i,t,y){
+          c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+          t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+          y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+      })(window, document, "clarity", "script", "wyo268ibxm");
+  </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>つづける</title>
@@ -220,7 +232,7 @@
   .day-memo-sheet{background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:20px 20px calc(16px + env(safe-area-inset-bottom));animation:slideUp .22s cubic-bezier(.22,1,.36,1);}
   .day-memo-title{font-size:14px;font-weight:700;margin-bottom:4px;color:var(--text);}
   .day-memo-date{font-size:11px;color:var(--text3);margin-bottom:12px;}
-  .day-memo-textarea{width:100%;min-height:80px;border:1.5px solid var(--border2);border-radius:10px;padding:9px 11px;font-family:'Noto Sans JP',sans-serif;font-size:13px;color:var(--text);background:var(--surface2);outline:none;resize:none;line-height:1.6;box-sizing:border-box;}
+  .day-memo-textarea{width:100%;min-height:80px;border:1.5px solid var(--border2);border-radius:10px;padding:9px 11px;font-family:'Noto Sans JP',sans-serif;font-size:16px;color:var(--text);background:var(--surface2);outline:none;resize:none;line-height:1.6;box-sizing:border-box;}
   .day-memo-textarea:focus{border-color:var(--blue);background:white;}
   .day-memo-btns{display:flex;gap:8px;margin-top:10px;}
   .day-memo-cancel{height:40px;padding:0 16px;border-radius:10px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-family:inherit;font-size:13px;cursor:pointer;}
@@ -236,9 +248,9 @@
   .link-btn:active{background:#cde3f8;}
   /* Edit form enhancements */
   .edit-section-label{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.5px;margin-top:2px;}
-  .edit-memo-area{width:100%;min-height:72px;border:1.5px solid var(--border2);border-radius:8px;padding:8px 10px;font-family:'Noto Sans JP',sans-serif;font-size:13px;color:var(--text);background:var(--surface2);outline:none;resize:vertical;line-height:1.6;}
+  .edit-memo-area{width:100%;min-height:72px;border:1.5px solid var(--border2);border-radius:8px;padding:8px 10px;font-family:'Noto Sans JP',sans-serif;font-size:16px;color:var(--text);background:var(--surface2);outline:none;resize:vertical;line-height:1.6;}
   .edit-memo-area:focus{border-color:var(--blue);background:white;}
-  .edit-link-input{width:100%;height:34px;border:1.5px solid var(--border2);border-radius:8px;padding:0 10px;font-family:'Noto Sans JP',sans-serif;font-size:13px;color:var(--text);background:var(--surface2);outline:none;}
+  .edit-link-input{width:100%;height:34px;border:1.5px solid var(--border2);border-radius:8px;padding:0 10px;font-family:'Noto Sans JP',sans-serif;font-size:16px;color:var(--text);background:var(--surface2);outline:none;}
   .edit-link-input:focus{border-color:var(--blue);background:white;}
   .edit-link-row{display:flex;gap:6px;align-items:center;}
   .edit-link-remove{width:26px;height:26px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text3);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -298,7 +310,7 @@
 
   .add-bar{position:fixed;bottom:0;left:0;right:0;margin:0 auto;width:100%;max-width:480px;background:var(--surface);border-top:1px solid var(--border);padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:50;box-sizing:border-box;}
   .add-form{display:flex;gap:6px;align-items:center;overflow:hidden;}
-  .add-input{flex:1;min-width:0;height:42px;border:1.5px solid var(--border2);border-radius:12px;padding:0 12px;font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--text);background:var(--bg);outline:none;transition:border-color .2s;box-sizing:border-box;}
+  .add-input{flex:1;min-width:0;height:42px;border:1.5px solid var(--border2);border-radius:12px;padding:0 12px;font-family:'Noto Sans JP',sans-serif;font-size:16px;color:var(--text);background:var(--bg);outline:none;transition:border-color .2s;box-sizing:border-box;}
   .add-input:focus{border-color:var(--accent);background:white;}
   .add-input::placeholder{color:var(--text3);}
   .add-type-btn{height:42px;padding:0 10px;border-radius:12px;border:1.5px solid var(--border2);background:var(--surface2);color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:border-color .15s,background .15s,color .15s;min-width:54px;text-align:center;}
@@ -397,10 +409,10 @@
   .setup-body{padding:24px 20px 60px;max-width:480px;margin:0 auto;}
   .setup-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;}
   .setup-card-title{font-size:14px;font-weight:700;margin-bottom:12px;}
-  .setup-url-input{width:100%;height:44px;border:1.5px solid var(--border2);border-radius:10px;padding:0 12px;font-size:13px;font-family:'DM Mono',monospace;color:var(--text);background:var(--bg);outline:none;transition:border-color .2s;}
+  .setup-url-input{width:100%;height:44px;border:1.5px solid var(--border2);border-radius:10px;padding:0 12px;font-size:16px;font-family:'DM Mono',monospace;color:var(--text);background:var(--bg);outline:none;transition:border-color .2s;}
   .setup-url-input:focus{border-color:var(--accent);background:white;}
   .setup-url-input::placeholder{color:var(--text3);font-family:'Noto Sans JP',sans-serif;font-size:13px;}
-  .setup-name-input{width:100%;height:44px;border:1.5px solid var(--border2);border-radius:10px;padding:0 12px;font-size:14px;font-family:'Noto Sans JP',sans-serif;color:var(--text);background:var(--bg);outline:none;transition:border-color .2s;margin-bottom:10px;}
+  .setup-name-input{width:100%;height:44px;border:1.5px solid var(--border2);border-radius:10px;padding:0 12px;font-size:16px;font-family:'Noto Sans JP',sans-serif;color:var(--text);background:var(--bg);outline:none;transition:border-color .2s;margin-bottom:10px;}
   .setup-name-input:focus{border-color:var(--accent);background:white;}
   .setup-save-btn{width:100%;height:44px;border-radius:10px;border:none;background:var(--accent);color:white;font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-top:10px;-webkit-tap-highlight-color:transparent;}
   .setup-save-btn:active{background:var(--accent-dark);}
@@ -428,7 +440,7 @@
   .welcome-item-sub{font-size:11px;color:var(--text3);margin-top:2px;}
   .welcome-divider{width:100%;text-align:center;font-size:12px;color:var(--text3);margin:14px 0;}
   .welcome-new-row{display:flex;gap:8px;width:100%;}
-  .welcome-new-input{flex:1;height:44px;border:1.5px solid var(--border2);border-radius:12px;padding:0 14px;font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--text);background:var(--surface);outline:none;transition:border-color .2s;}
+  .welcome-new-input{flex:1;height:44px;border:1.5px solid var(--border2);border-radius:12px;padding:0 14px;font-family:'Noto Sans JP',sans-serif;font-size:16px;color:var(--text);background:var(--surface);outline:none;transition:border-color .2s;}
   .welcome-new-input:focus{border-color:var(--accent);}
   .welcome-new-input::placeholder{color:var(--text3);}
   .welcome-add-btn{height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--accent);color:white;font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
@@ -494,7 +506,7 @@
   /* 期間指定入力 */
   .an-range-row{display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
   .an-range-label{font-size:11px;color:var(--text3);flex-shrink:0;}
-  .an-range-input{flex:1;min-width:120px;padding:5px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);font-family:'Noto Sans JP',sans-serif;font-size:12px;color:var(--text);outline:none;}
+  .an-range-input{flex:1;min-width:120px;padding:5px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);font-family:'Noto Sans JP',sans-serif;font-size:16px;color:var(--text);outline:none;}
   .an-range-input:focus{border-color:var(--blue);}
   /* ときどき・やめる バーグラフ */
   .occ-bar-fill{background:var(--purple)!important;}
@@ -516,6 +528,19 @@
   .quit-bar-track-mini{flex:1;height:7px;background:var(--surface2);border-radius:99px;overflow:hidden;}
   .quit-bar-fill-mini{height:100%;border-radius:99px;transition:width .5s cubic-bezier(.22,1,.36,1);}
   .quit-mini-count{font-size:10px;font-family:'DM Mono',monospace;width:24px;text-align:right;flex-shrink:0;}
+  /* iOSでテキスト入力欄フォーカス時に画面が自動拡大されるのを防ぐ（16px未満だとSafariがズームする仕様への対策） */
+  input[type="text"],
+  input[type="url"],
+  input[type="number"],
+  input[type="date"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="search"],
+  input[type="password"],
+  textarea,
+  select{
+    font-size:16px;
+  }
 </style>
 </head>
 <body>
@@ -678,7 +703,7 @@
       <div id="setup-current-group" style="font-size:14px;color:var(--text2);margin-bottom:8px;"></div>
       <div class="setup-card-title" style="margin-top:0;margin-bottom:6px;">✏️ グループ名を変更</div>
       <div style="display:flex;gap:8px;margin-bottom:16px;">
-        <input class="setup-url-input" id="setup-group-name-input" type="text" maxlength="20" placeholder="グループ名" style="font-family:'Noto Sans JP',sans-serif;font-size:14px;">
+        <input class="setup-url-input" id="setup-group-name-input" type="text" maxlength="20" placeholder="グループ名" style="font-family:'Noto Sans JP',sans-serif;font-size:16px;">
         <button id="setup-group-name-btn" style="height:44px;padding:0 14px;border-radius:10px;border:none;background:var(--blue);color:white;font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0;margin-top:10px;">変更</button>
       </div>
       <div class="setup-card-title" style="margin-top:0;">🔗 GAS URL（家族共有する場合）</div>
@@ -1499,7 +1524,7 @@ function openHabitEditSheet(idx){
       <div style="display:flex;flex-direction:column;gap:12px;">
         <div>
           <div class="edit-section-label">名前</div>
-          <textarea id="edit-name-input" style="margin-top:4px;min-height:38px;max-height:100px;border:1.5px solid var(--accent);border-radius:8px;padding:8px 10px;font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--text);background:white;outline:none;width:100%;resize:none;line-height:1.5;overflow-y:auto;box-sizing:border-box;" maxlength="40">${escHtml(habit.name)}</textarea>
+          <textarea id="edit-name-input" style="margin-top:4px;min-height:38px;max-height:100px;border:1.5px solid var(--accent);border-radius:8px;padding:8px 10px;font-family:'Noto Sans JP',sans-serif;font-size:16px;color:var(--text);background:white;outline:none;width:100%;resize:none;line-height:1.5;overflow-y:auto;box-sizing:border-box;" maxlength="40">${escHtml(habit.name)}</textarea>
         </div>
         <div>
           <div class="edit-section-label">種別</div>
@@ -1926,7 +1951,7 @@ function showAddUserForm(){
   const ov=document.createElement('div');
   ov.id='inline-add-overlay';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:250;display:flex;align-items:flex-end;justify-content:center;';
-  ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp .24s cubic-bezier(.22,1,.36,1);"><div style="font-size:15px;font-weight:700;margin-bottom:16px;">ユーザーを追加</div><div style="display:flex;gap:8px;"><input id="iai" type="text" placeholder="名前を入力…" maxlength="20" style="flex:1;height:44px;border:1.5px solid var(--accent);border-radius:12px;padding:0 14px;font-family:inherit;font-size:14px;color:var(--text);background:white;outline:none;"><button id="iao" style="height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">追加</button></div><button id="iac" style="width:100%;margin-top:10px;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;">キャンセル</button></div>`;
+  ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp .24s cubic-bezier(.22,1,.36,1);"><div style="font-size:15px;font-weight:700;margin-bottom:16px;">ユーザーを追加</div><div style="display:flex;gap:8px;"><input id="iai" type="text" placeholder="名前を入力…" maxlength="20" style="flex:1;height:44px;border:1.5px solid var(--accent);border-radius:12px;padding:0 14px;font-family:inherit;font-size:16px;color:var(--text);background:white;outline:none;"><button id="iao" style="height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">追加</button></div><button id="iac" style="width:100%;margin-top:10px;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;">キャンセル</button></div>`;
   document.body.appendChild(ov);
   const inp=ov.querySelector('#iai');setTimeout(()=>inp.focus(),50);
   let adding=false; // 二重追加防止フラグ
@@ -1955,7 +1980,7 @@ function showAddGroupForm(){
   const ov=document.createElement('div');
   ov.id='inline-add-overlay';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:250;display:flex;align-items:flex-end;justify-content:center;';
-  ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp .24s cubic-bezier(.22,1,.36,1);"><div style="font-size:15px;font-weight:700;margin-bottom:16px;">グループを追加</div><div style="display:flex;gap:8px;"><input id="agi" type="text" placeholder="グループ名（例：田中家）" maxlength="20" style="flex:1;height:44px;border:1.5px solid var(--blue);border-radius:12px;padding:0 14px;font-family:inherit;font-size:14px;color:var(--text);background:white;outline:none;"><button id="ago" style="height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--blue);color:white;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">作成</button></div><button id="agc" style="width:100%;margin-top:10px;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;">キャンセル</button></div>`;
+  ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp .24s cubic-bezier(.22,1,.36,1);"><div style="font-size:15px;font-weight:700;margin-bottom:16px;">グループを追加</div><div style="display:flex;gap:8px;"><input id="agi" type="text" placeholder="グループ名（例：田中家）" maxlength="20" style="flex:1;height:44px;border:1.5px solid var(--blue);border-radius:12px;padding:0 14px;font-family:inherit;font-size:16px;color:var(--text);background:white;outline:none;"><button id="ago" style="height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--blue);color:white;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">作成</button></div><button id="agc" style="width:100%;margin-top:10px;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;">キャンセル</button></div>`;
   document.body.appendChild(ov);
   const inp=ov.querySelector('#agi');setTimeout(()=>inp.focus(),50);
   const doAdd=()=>{
@@ -2036,7 +2061,7 @@ function render(){
         const item=btn.closest('.goal-comment-item');
         item.innerHTML=`
           <span style="font-size:11px;flex-shrink:0;">🎯</span>
-          <input type="text" value="${escHtml(habit.name)}" style="flex:1;height:24px;border:1.5px solid var(--blue);border-radius:6px;padding:0 6px;font-family:'Noto Sans JP',sans-serif;font-size:12px;color:var(--text);background:white;outline:none;min-width:0;">
+          <input type="text" value="${escHtml(habit.name)}" style="flex:1;height:24px;border:1.5px solid var(--blue);border-radius:6px;padding:0 6px;font-family:'Noto Sans JP',sans-serif;font-size:16px;color:var(--text);background:white;outline:none;min-width:0;">
           <button class="goal-comment-btn goal-save-btn" title="保存" style="opacity:1;color:var(--check);">✓</button>
           <button class="goal-comment-btn goal-cancel-btn" title="取消">✕</button>`;
         const inp=item.querySelector('input');inp.focus();inp.select();
@@ -3000,7 +3025,7 @@ document.getElementById('rename-group-btn').addEventListener('click',()=>{
   const cg=getCurrentGroup();if(!cg)return;
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:250;display:flex;align-items:flex-end;justify-content:center;';
-  ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp .24s cubic-bezier(.22,1,.36,1);"><div style="font-size:15px;font-weight:700;margin-bottom:16px;">グループ名を変更</div><div style="display:flex;gap:8px;"><input id="_rgi" type="text" maxlength="20" style="flex:1;height:44px;border:1.5px solid var(--accent);border-radius:12px;padding:0 14px;font-family:inherit;font-size:14px;color:var(--text);background:white;outline:none;" value="${escHtml(cg.name)}"><button id="_rgo" style="height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">保存</button></div><button id="_rgc" style="width:100%;margin-top:10px;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;">キャンセル</button></div>`;
+  ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp .24s cubic-bezier(.22,1,.36,1);"><div style="font-size:15px;font-weight:700;margin-bottom:16px;">グループ名を変更</div><div style="display:flex;gap:8px;"><input id="_rgi" type="text" maxlength="20" style="flex:1;height:44px;border:1.5px solid var(--accent);border-radius:12px;padding:0 14px;font-family:inherit;font-size:16px;color:var(--text);background:white;outline:none;" value="${escHtml(cg.name)}"><button id="_rgo" style="height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">保存</button></div><button id="_rgc" style="width:100%;margin-top:10px;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;">キャンセル</button></div>`;
   document.body.appendChild(ov);
   const inp=ov.querySelector('#_rgi');setTimeout(()=>{inp.focus();inp.select();},50);
   const doSave=async()=>{
@@ -3020,7 +3045,7 @@ document.getElementById('rename-user-btn').addEventListener('click',()=>{
   const cu=getCurrentUser();
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:250;display:flex;align-items:flex-end;justify-content:center;';
-  ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp .24s cubic-bezier(.22,1,.36,1);"><div style="font-size:15px;font-weight:700;margin-bottom:16px;">名前を変更</div><div style="display:flex;gap:8px;"><input id="rui" type="text" maxlength="20" style="flex:1;height:44px;border:1.5px solid var(--accent);border-radius:12px;padding:0 14px;font-family:inherit;font-size:14px;color:var(--text);background:white;outline:none;" value="${escHtml(cu.name)}"><button id="ruo" style="height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">保存</button></div><button id="ruc" style="width:100%;margin-top:10px;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;">キャンセル</button></div>`;
+  ov.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp .24s cubic-bezier(.22,1,.36,1);"><div style="font-size:15px;font-weight:700;margin-bottom:16px;">名前を変更</div><div style="display:flex;gap:8px;"><input id="rui" type="text" maxlength="20" style="flex:1;height:44px;border:1.5px solid var(--accent);border-radius:12px;padding:0 14px;font-family:inherit;font-size:16px;color:var(--text);background:white;outline:none;" value="${escHtml(cu.name)}"><button id="ruo" style="height:44px;padding:0 18px;border-radius:12px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">保存</button></div><button id="ruc" style="width:100%;margin-top:10px;height:40px;border-radius:12px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer;">キャンセル</button></div>`;
   document.body.appendChild(ov);
   const inp=ov.querySelector('#rui');setTimeout(()=>{inp.focus();inp.select();},50);
   const doSave=async()=>{
@@ -3117,7 +3142,7 @@ document.getElementById('copy-user-btn').addEventListener('click',()=>{
     <div style="margin-bottom:14px;">${groupOptions}</div>
 
     <div style="font-size:12px;color:var(--text3);margin-bottom:6px;">② 新しいユーザー名</div>
-    <input id="cup-name" type="text" maxlength="20" value="${escHtml(cu.name)}のコピー" style="width:100%;height:44px;border:1.5px solid var(--accent);border-radius:12px;padding:0 14px;font-family:inherit;font-size:14px;color:var(--text);background:white;outline:none;box-sizing:border-box;margin-bottom:14px;">
+    <input id="cup-name" type="text" maxlength="20" value="${escHtml(cu.name)}のコピー" style="width:100%;height:44px;border:1.5px solid var(--accent);border-radius:12px;padding:0 14px;font-family:inherit;font-size:16px;color:var(--text);background:white;outline:none;box-sizing:border-box;margin-bottom:14px;">
 
     <div style="font-size:12px;color:var(--text3);margin-bottom:6px;">③ コピー内容</div>
     <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface);margin-bottom:6px;cursor:pointer;">
@@ -3242,7 +3267,7 @@ document.getElementById('gas-settings-btn').addEventListener('click',()=>{
     </div>
     <div style="margin-bottom:14px;">
       <div style="font-size:12px;color:var(--text3);margin-bottom:6px;">GAS URL</div>
-      <input id="gas-modal-url" type="url" placeholder="https://script.google.com/macros/s/..." value="${escHtml(currentUrl)}" style="width:100%;height:44px;border:1.5px solid var(--border2);border-radius:12px;padding:0 14px;font-family:inherit;font-size:13px;color:var(--text);background:white;outline:none;box-sizing:border-box;transition:border-color .2s;">
+      <input id="gas-modal-url" type="url" placeholder="https://script.google.com/macros/s/..." value="${escHtml(currentUrl)}" style="width:100%;height:44px;border:1.5px solid var(--border2);border-radius:12px;padding:0 14px;font-family:inherit;font-size:16px;color:var(--text);background:white;outline:none;box-sizing:border-box;transition:border-color .2s;">
     </div>
     <div style="display:flex;gap:8px;margin-bottom:12px;">
       <button id="gas-modal-save" style="flex:2;min-width:0;height:44px;border-radius:12px;border:none;background:var(--blue);color:white;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:0 6px;">\ud83d\udcbe URL\u3092\u4fdd\u5b58\u30fb\u63a5\u7d9a</button>
@@ -3251,7 +3276,7 @@ document.getElementById('gas-settings-btn').addEventListener('click',()=>{
     </div>
     <div id="gas-modal-interval-row" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 12px;background:var(--surface2);border-radius:10px;">
       <span style="font-size:12px;color:var(--text2);flex-shrink:0;">\u5b9a\u671f\u81ea\u52d5\u540c\u671f\u306e\u9593\u9694:</span>
-      <input id="gas-modal-interval" type="number" min="0" step="0.5" placeholder="0" style="width:72px;height:34px;border:1.5px solid var(--border2);border-radius:8px;padding:0 8px;font-family:inherit;font-size:14px;color:var(--text);background:white;outline:none;text-align:center;">
+      <input id="gas-modal-interval" type="number" min="0" step="0.5" placeholder="0" style="width:72px;height:34px;border:1.5px solid var(--border2);border-radius:8px;padding:0 8px;font-family:inherit;font-size:16px;color:var(--text);background:white;outline:none;text-align:center;">
       <span style="font-size:12px;color:var(--text2);flex-shrink:0;">\u5206\uff080\u3067\u7121\u52b9\uff09</span>
     </div>
     <details style="margin-bottom:8px;">
